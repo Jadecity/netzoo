@@ -1,0 +1,20 @@
+def my_input_fn(file_path, perform_shuffle=False, repeat_count=1):  
+    def parse(example_proto):  
+        features = {"x": tf.VarLenFeature(tf.int64),  
+              "y": tf.FixedLenFeature([1], tf.int64)}  
+        parsed_features = tf.parse_single_example(example_proto, features)  
+        x = tf.sparse_tensor_to_dense(parsed_features["x"])  
+        x = tf.cast(x, tf.int32)  
+        x = dict(zip(feature_names, [x]))  
+        y = tf.cast(parsed_features["y"], tf.int32)  
+        return x, y  
+  
+    dataset = (tf.contrib.data.TFRecordDataset(file_path)  
+               .map(parse))  
+    if perform_shuffle:  
+        dataset = dataset.shuffle(buffer_size=256)  
+    dataset = dataset.repeat(repeat_count)  
+    dataset = dataset.padded_batch(2, padded_shapes=({'x':[6]},[1]))  #batch size为2，并且x按maxlen=6来做padding  
+    iterator = dataset.make_one_shot_iterator()  
+    batch_features, batch_labels = iterator.get_next()  
+    return batch_features, batch_labels  
