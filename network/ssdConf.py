@@ -1,4 +1,0 @@
-"""
-SSD parameter configuration.
-"""
-
