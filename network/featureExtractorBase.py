@@ -1,0 +1,2 @@
+class FeatureExtractorBase:
+    pass

@@ -46,3 +46,15 @@ class SSDNet:
 
 
         pass
+
+    def loss(self, labels, bboxes, glabels, gbboxes):
+        """
+        Compute loss and put them to tf.collections.LOSS and other loss
+        :param labels: predicted labels.
+        :param bboxes: predicted bounding boxes.
+        :param glabels: ground truth labels.
+        :param gbboxes: gound truth bounding boxes.
+        :return: None
+        """
+
+        pass
