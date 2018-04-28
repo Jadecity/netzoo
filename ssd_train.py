@@ -59,5 +59,4 @@ def main(_):
     # tl.files.save_npz(ssd_net.all_params, name='model.npz')
 
 if __name__ == '__main__':
-    # tf.app.run()
-    
+    tf.app.run()

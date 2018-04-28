@@ -1,18 +1,21 @@
 import network.mobileConf as mobileConf
 import network.mobileNet as mobileNet
+import network.ssdConf as ssdConf
+import network.ssdNet as ssdNet
 import tensorflow as tf
 import tensorlayer as tl
 import numpy as np
-
-import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
     # Create feature extractor.
     mobile_conf = mobileConf.loadMobileConf()
     ft_extractor = mobileNet.MobileNet(mobile_conf)
 
+    ssd_conf = ssdConf.loadSSDConf()
+    ssd_net = ssdNet.SSDNet(ssd_conf, ft_extractor)
+
     input_img = tf.placeholder(tf.float32, [1, 224, 224, 3])
-    ft = ft_extractor.predict(input_img)
+    ft = ssd_net.predict(input_img)
 
     path = '/home/autel/data/exp_imgs'
     img_name = 'face.jpg'
@@ -29,6 +32,3 @@ if __name__ == '__main__':
     ss.close()
 
     print(ft)
-
-    # close session
-
