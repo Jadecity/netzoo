@@ -1,21 +1,22 @@
-import network.mobileConf as mobileConf
 import network.mobileNet as mobileNet
 import network.ssdConf as ssdConf
 import network.ssdNet as ssdNet
+import common.config as confutil
 import tensorflow as tf
 import tensorlayer as tl
 import numpy as np
 
 if __name__ == '__main__':
-    # Create feature extractor.
-    mobile_conf = mobileConf.loadMobileConf()
-    ft_extractor = mobileNet.MobileNet(mobile_conf)
+    g_conf = confutil.loadTrainConf()
 
-    ssd_conf = ssdConf.loadSSDConf()
+    # Create feature extractor.
+    ft_extractor = mobileNet.MobileNet(g_conf)
+
+    ssd_conf = ssdConf.addSSDConf(g_conf)
     ssd_net = ssdNet.SSDNet(ssd_conf, ft_extractor)
 
     input_img = tf.placeholder(tf.float32, [1, 224, 224, 3])
-    ft = ssd_net.predict(input_img)
+    pred, logits, locations, endpoints = ssd_net.predict(input_img)
 
     path = '/home/autel/data/exp_imgs'
     img_name = 'face.jpg'
@@ -28,7 +29,7 @@ if __name__ == '__main__':
     # initialize all variables in the session
     tl.layers.initialize_global_variables(ss)
 
-    ft = ss.run(ft.outputs, feed_dict={input_img: img})
+    pred, logits, locations = ss.run((pred, logits, locations), feed_dict={input_img: img})
     ss.close()
 
-    print(ft)
+    print(np.shape(pred))

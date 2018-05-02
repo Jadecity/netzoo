@@ -30,7 +30,7 @@ def main(_):
 
     # Predict labels and bouding boxes.
     input_img = tf.placeholder(tf.int8, [None, ssd_conf['input_h'], ssd_conf['input_w'], ssd_conf['input_c']])
-    labels, bboxes, confidence, endpoints = ssd_net.predict(input_img)
+    labels, logits, bboxes, endpoints = ssd_net.predict(input_img)
 
     # Compute loss and put them to tf.collections.LOSS and other loss.
     input_labels = tf.placeholder(tf.int8, [None, 1])

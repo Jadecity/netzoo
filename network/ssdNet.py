@@ -26,58 +26,55 @@ class SSDNet:
         :return: labels , corresponding bboxes, confidential and endpoints of the network.
         """
 
-        ft = self._feature_extractor.predict(input_img)
+        ft, mbnet_layers = self._feature_extractor.predict(input_img)
 
         # Get specific layer output
-        last_layer = tl.layers.get_layers_with_name(ft, 'layer-6')[-1]
-        last_layer = tl.layers.InputLayer(last_layer)
+        last_layer = mbnet_layers['layer-12'] # shape 14x14x512
 
         # add auxiliary conv layers to the end of backbone network
-        endpoints = {}
-        endpoints['block-0'] = last_layer
+        endpoints = mbnet_layers
 
         with tf.variable_scope('SSDNet'):
-            block = 'block-1'
-            with tf.variable_scope(block):
-                net = tl.layers.Conv2dLayer(last_layer, act=tf.nn.relu, shape=(3, 3, 256, 1024), name='conv1')
-                net = tl.layers.Conv2dLayer(net, act=tf.nn.relu, shape=(1, 1, 1024, 1024), name='conv2')
-            endpoints[block] = net
-
-            block='block-2'
-            with tf.variable_scope(block):
-                net = tl.layers.Conv2dLayer(net, act=tf.nn.relu, shape=(1, 1, 1024, 256), name='conv3')
+            block='block-1'
+            with tf.variable_scope(block):#14x14x512 -> 7x7x512
+                net = tl.layers.Conv2dLayer(last_layer, act=tf.nn.relu, shape=(1, 1, 512, 256), name='conv3')
                 net = tl.layers.Conv2dLayer(net, act=tf.nn.relu, shape=(3, 3, 256, 512), strides=(1,2,2,1), name='conv4')
             endpoints[block] = net
 
-            block = 'block-3'
-            with tf.variable_scope(block):
+            block = 'block-2'
+            with tf.variable_scope(block):#7x7x512 -> 4x4x256
                 net = tl.layers.Conv2dLayer(net, act=tf.nn.relu, shape=(1, 1, 512, 128), name='conv5')
                 net = tl.layers.Conv2dLayer(net, act=tf.nn.relu, shape=(3, 3, 128, 256), strides=(1, 2, 2, 1), name='conv6')
             endpoints[block] = net
 
-            block = 'block-4'
-            with tf.variable_scope(block):
+            block = 'block-3'
+            with tf.variable_scope(block):#4x4x256 -> 2x2x256
                 net = tl.layers.Conv2dLayer(net, act=tf.nn.relu, shape=(1, 1, 256, 128), name='conv7')
-                net = tl.layers.Conv2dLayer(net, act=tf.nn.relu, shape=(3, 3, 128, 256), name='conv8')
+                net = tl.layers.Conv2dLayer(net, act=tf.nn.relu, shape=(3, 3, 128, 256), strides=(1, 2, 2, 1), name='conv8')
             endpoints[block] = net
 
-        """ 
+            block = 'block-4'
+            with tf.variable_scope(block):#2x2x256 -> 1x1x256
+                net = tl.layers.Conv2dLayer(net, act=tf.nn.relu, shape=(1, 1, 256, 128), name='conv9')
+                net = tl.layers.Conv2dLayer(net, act=tf.nn.relu, shape=(2, 2, 128, 256), padding='VALID', name='conv10')
+            endpoints[block] = net
+
+        """
         Add classifier conv layers to each added feature map(including the last layer of backbone network).
         Prediction and localisations layers.
         """
         predictions = []
         logits = []
         locations = []
-        anchor_sizes, anchor_ratios, normalizations = self._get_anchors(self._net_conf['featuremap_sizes'])
-
-        for i, layer in enumerate(endpoints):
+        for layer in self._net_conf['featuremaps'].keys():
             with tf.variable_scope(layer + '_box'):
-                p, l = self._multibox_predict(endpoints[layer],
-                                          self._net_conf['class_num'], len(anchor_sizes))
+                prob, loc = self._multibox_predict(endpoints[layer],
+                                                   self._net_conf['class_num'],
+                                                   self._net_conf['featuremaps'][layer])
 
-                predictions.append(tf.nn.softmax(p))
-                logits.append(p)
-                locations.append(l)
+                predictions.append(tf.nn.softmax(prob))
+                logits.append(prob)
+                locations.append(loc)
 
         return predictions, logits, locations, endpoints
 
@@ -124,26 +121,37 @@ class SSDNet:
         return sizes, ratios, norms
 
 
-    def _multibox_predict(self, input, class_num, anchor_num):
+    def _multibox_predict(self, input, class_num, layer_conf):
         """
-        Compute predictions for each output layer.
-        :param input_layer: Input feature layer of size anchor_num * (class number + 4 offsets)
+        Compute predictions for each input layer.
+        :param input_layer: Input feature layer
         :param class_num: number of output classes.
         :param anchor_num: number of anchors.
         :return: prediction p, and localizatoin l.
         """
-        with tf.variable_scope('class-pred'):
-            class_end = tl.layers.Conv2dLayer(input, shape=(3,3,tf.shape(input)[3], anchor_num * class_num))
+        anchor_num = len(layer_conf.ratios) + 1
+        input_shape = (int(input.outputs.get_shape()[1]),
+                       int(input.outputs.get_shape()[2]),
+                       int(input.outputs.get_shape()[3]))
 
-        with tf.variable_scope('pos-pred'):
-            pos_end = tl.layers.Conv2dLayer(input, shape=(3,3,tf.shape(input)[3], anchor_num * 4))
+        with tf.variable_scope('pred'):
+            pred_rst = tl.layers.Conv2dLayer(input, shape=(3, 3, input_shape[2], anchor_num * (class_num + 4)))
+            pred_rst = tl.layers.ReshapeLayer(pred_rst, shape=(1, input_shape[0], input_shape[1], anchor_num, class_num + 4))
 
         # Reshape output tensor to extract each anchor prediction.
-        p = tf.reshape(class_end, shape=(anchor_num, class_num))
-        l = tf.reshape(pos_end, shape=(anchor_num, 4))
+        pred_class = tf.slice(pred_rst.outputs, [0, 0, 0, 0, 0], [self._net_conf['batch_size'],
+                                                                  input_shape[0],
+                                                                  input_shape[1],
+                                                                  anchor_num,
+                                                                  class_num])
 
-        return p, l
-
+        pred_pos = tf.slice(pred_rst.outputs, [0, 0, 0, 0, class_num], [self._net_conf['batch_size'],
+                                                                        input_shape[0],
+                                                                        input_shape[1],
+                                                                        anchor_num,
+                                                                        4])
+        print(pred_pos.get_shape())
+        return pred_class, pred_pos
 
 
     def loss(self, labels, bboxes, glabels, gbboxes):
