@@ -4,12 +4,14 @@ Utility tools to manage tfrecord dataset.
 import os.path
 import tensorflow as tf
 import glob
+import common.utils as utils
 
 class DataSet:
 
-    def __init__(self, path, parser=None, batchsize=1):
+    def __init__(self, path, class_num, parser=None, batchsize=1):
         self._dataset = None
         self.createDataSet(path, batchsize, parser)
+        self._class_num = class_num
 
     def _parse_func(self, example):
         """
@@ -64,5 +66,7 @@ class DataSet:
         :return:
         """
         img_batch, size_batch, labels_batch, bboxes_batch = self._itr.get_next()
+        labels_batch = utils.makeOneHot(labels_batch, self._class_num)
+
         return img_batch, size_batch, labels_batch, bboxes_batch
 

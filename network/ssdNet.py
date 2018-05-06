@@ -6,6 +6,7 @@ import tensorlayer as tl
 import tensorflow as tf
 import math
 import numpy as np
+import common.utils as utils
 
 class SSDNet:
     def __init__(self, net_conf, feature_extractor):
@@ -17,6 +18,7 @@ class SSDNet:
         """
         self._feature_extractor = feature_extractor
         self._net_conf = net_conf
+        self._anchors = self._create_anchors(self._net_conf['featuremaps'])
 
     def predict(self, input_img, is_training=False):
         """
@@ -66,11 +68,11 @@ class SSDNet:
         predictions = []
         logits = []
         locations = []
-        for layer in self._net_conf['featuremaps'].keys():
-            with tf.variable_scope(layer + '_box'):
-                prob, loc = self._multibox_predict(endpoints[layer],
+        for layer_conf in self._net_conf['featuremaps']:
+            with tf.variable_scope(layer_conf.layer_name + '_box'):
+                prob, loc = self._multibox_predict(endpoints[layer_conf.layer_name],
                                                    self._net_conf['class_num'],
-                                                   self._net_conf['featuremaps'][layer])
+                                                   layer_conf)
 
                 predictions.append(tf.nn.softmax(prob))
                 logits.append(prob)
@@ -78,9 +80,8 @@ class SSDNet:
 
         return predictions, logits, locations, endpoints
 
-    def _get_anchors(self, feature_map_sizes):
+    def _create_anchors(self, fm_conf):
         """
-        TODO To understand the logic that how anchors are used, and refine this function.
         Create predefined anchors according to feature map number.
         :param feature_map_sizes: Size of each square feature map, only side length.
         :return:
@@ -88,38 +89,42 @@ class SSDNet:
             anchor_ratios: Anchor ratio list.
             normalizations: Normalized anchor position.
         """
-        ratios = [1, 2, 3, 1/2.0, 1/3.0]
-        sqrt_ratios = [math.sqrt(x) for x in ratios]
 
-        s_min = 0.2
-        s_max = 0.9
-        sizes = []
-        feature_map_num = len(feature_map_sizes)
-        for k in range(feature_map_num):
-            k = k + 1
-            s_k = s_min + (s_max - s_min)/(feature_map_num - 1)*(k - 1)
-            for ratio in math.sqrt_ratios:
-                width = s_k * ratio
-                height = s_k / ratio
-                sizes.append([width, height])
+        boxes_list = []
+        for i, layer_conf in enumerate(fm_conf):
+            sqrt_ratios = [math.sqrt(x) for x in layer_conf.ratios]
+            boxes = []
+
+            sk = layer_conf.scale
+            for ratio in sqrt_ratios:
+                width = sk * ratio
+                height = sk / ratio
+                boxes.append([width, height])
 
             # Add one more for ratio 1.
-            s_k_2 = s_min + (s_max - s_min)/(feature_map_num - 1)*(k + 1 - 1)
-            width = math.sqrt(s_k * s_k_2)
-            height = width
-            sizes.append([width, height])
+            if i < len(fm_conf) - 1:
+                s_prime = math.sqrt(sk * fm_conf[i + 1].scale)
+            else:
+                s_prime = math.sqrt(sk * 107.5)
 
-        norms = []
-        for size in feature_map_sizes:
-            norm = np.zeros([size, size, 2])
-            for i in range(1, size + 1):
-                for j in range(1, size + 1):
-                    norm[i, j, :] = np.array((i+0.5)/size**2, (j+0.5)/size**2)
+            boxes.append([s_prime, s_prime])
+            boxes_list.append(boxes)
 
-            norms.append(norm)
+        # compute anchors for each position
+        layer_anchors = {}
+        for i, layer_conf in enumerate(fm_conf):
+            anchors = np.zeros([layer_conf.size, layer_conf.size, len(layer_conf.ratios) + 1, 4])
+            for r in range(layer_conf.size):
+                cy = (r+0.5)/layer_conf.size**2
+                for c in range(layer_conf.size):
+                    cx = (c+0.5)/layer_conf.size**2
+                    for k, boxes in enumerate(boxes_list[i]):
+                        anchors[r, c, k, :] = [cx, cy, boxes[0], boxes[1]]
 
-        return sizes, ratios, norms
+            # save anchors for each feature map
+            layer_anchors[layer_conf.layer_name] = anchors
 
+        return layer_anchors
 
     def _multibox_predict(self, input, class_num, layer_conf):
         """
@@ -153,15 +158,100 @@ class SSDNet:
         print(pred_pos.get_shape())
         return pred_class, pred_pos
 
-
-    def loss(self, labels, bboxes, glabels, gbboxes):
+    def _confLoss(self, pos_mask, neg_mask, logits):
         """
-        Compute loss and put them to tf.collections.LOSS and other loss
-        :param labels: predicted labels.
-        :param bboxes: predicted bounding boxes.
+        Compute confidence loss.
+        :param pos_mask: positive example boolean mask.
+        :param neg_mask: negative example boolean mask.
+        :param glabel: ground truth label, shape[class_num]
+        :param logits: predicted probability, shape[height, width, anchor_num, class_num]
+        :return:
+        """
+
+        # Loss for each postition.
+        conf_loss = tf.nn.softmax(logits, axis=3)
+        pos_loss = tf.boolean_mask(conf_loss, pos_mask)
+        neg_loss = tf.boolean_mask(conf_loss, neg_mask)
+
+        # Top-k negative loss.
+        pos_num = tf.reduce_sum(tf.cast(pos_mask, dtype=tf.int8))
+        neg_num = tf.reduce_sum(tf.cast(neg_mask, dtype=tf.int8))
+        neg_loss = tf.nn.top_k(neg_loss, tf.minimum(neg_num, 3*pos_num))[0]
+
+        pos_loss = tf.reduce_sum(pos_loss)
+        neg_loss = tf.reduce_sum(neg_loss)
+        conf_loss = tf.negative(tf.add(pos_loss, neg_loss))
+
+        return conf_loss
+
+    def _locationLoss(self, pos_mask, anchors, gbbox, bboxes):
+        """
+        Compute location loss using ground truth bbox and predicted bbox.
+        :param pos_mask: boolean positive mask.
+        :param gbbox: ground truth bbox, shape[4]: cx, cy, width, height.
+        :param bboxes: predicted bbox, shape[width, height, anchor_num, 4], 4: cx, cy, width, height.
+        :return: Location loss.
+        """
+
+        for _ in range(3):
+            gbbox = tf.expand_dims(gbbox, 0)
+
+        c_offset = tf.divide(tf.subtract(gbbox[:, :, :, 0:2], anchors[:, :, :, 0:2]), anchors[:, :, :, 2:4])
+        wh_offset = tf.log(tf.divide(gbbox[:, :, :, 2:4], anchors[:, :, :, 2:4]))
+        gbbox = tf.concat([c_offset, wh_offset], axis=3)
+
+        diff = tf.subtract(bboxes, gbbox)
+        loc_loss = utils.smoothL1(diff)
+        loc_loss = tf.boolean_mask(loc_loss, pos_mask)
+        loc_loss = tf.reduce_sum(loc_loss)
+
+        return loc_loss
+
+
+    def loss(self, glabels, gbboxes, labels, bboxes):
+        """
+        Compute loss.
         :param glabels: ground truth labels.
         :param gbboxes: gound truth bounding boxes.
+        :param labels: predicted labels.
+        :param bboxes: predicted bounding boxes.
         :return: None
         """
+        fm_conf = self._net_conf['featuremaps']
+        anchors = self._anchors
 
-        pass
+        """
+        Compute loss for each item in batch,
+        sum them up to total loss.
+        """
+        for b in range(self._net_conf['batch_size']):
+            glabel = glabels[b]
+            gbbox = gbboxes[b]
+            labels = labels[b]
+            bboxes = bboxes[b]
+
+            with tf.name_scope('LOSS'):
+                # for each layer, compute loss
+                for m, layer_conf in enumerate(fm_conf):
+                    # compute jaccard overlap.
+                    overlap = utils.jaccardIndex(tf.constant(anchors[layer_conf.layer_name], dtype=tf.float32),
+                                                 gbbox)
+
+                    # get positive and negtive mask accoding to overlap
+                    pos_mask = utils.positiveMask(overlap)
+                    neg_mask = tf.logical_not(pos_mask)
+
+                    # count matched box number
+                    pos_count = tf.reduce_sum(tf.cast(pos_mask, dtype=tf.int64))
+
+                    # compute confidence loss and location loss
+                    conf_loss = self._confLoss(pos_mask, neg_mask, labels)
+                    loc_loss = self._locationLoss(pos_mask, anchors[layer_conf.layer_name], gbbox, bboxes)
+                    loc_loss = tf.multiply(loc_loss, self._net_conf['alpha'])
+
+                    cur_loss = tf.cond(tf.equal(pos_count, 0), lambda :tf.constant(0),
+                                         tf.divide(tf.add(conf_loss, loc_loss), pos_count))
+
+                    total_loss = tf.add(cur_loss)
+
+        return total_loss

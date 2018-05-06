@@ -33,7 +33,7 @@ def main(_):
     labels, logits, bboxes, endpoints = ssd_net.predict(input_img)
 
     # Compute loss and put them to tf.collections.LOSS and other loss.
-    input_labels = tf.placeholder(tf.int8, [None, 1])
+    input_labels = tf.placeholder(tf.int8, [None, ssd_conf['class_num']])
     input_bboxes = tf.placeholder(tf.int8, [None, 4])
     total_loss = ssd_net.loss(labels=labels, bboxes=bboxes, glabels=input_labels, gbboxes=input_bboxes)
 
@@ -47,7 +47,7 @@ def main(_):
     train_op = optimizer.minimize(total_loss)
 
     # Prepare training data.
-    dataset = dt.DataSet(trainConf['dataset_path'], trainConf['batch_size'])
+    dataset = dt.DataSet(trainConf['dataset_path'], trainConf['batch_size'], trainConf['class_num'])
     imgs, sizes, glabels, gbboxes = dataset.getNext()
 
     with tf.Session() as ss:
