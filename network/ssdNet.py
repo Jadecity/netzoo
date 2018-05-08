@@ -19,6 +19,7 @@ class SSDNet:
         self._feature_extractor = feature_extractor
         self._net_conf = net_conf
         self._anchors = self._create_anchors(self._net_conf['featuremaps'])
+        self._val = {'neg_num':[], 'neg_loss':[], 'pos_num':[]}
 
     def predict(self, input_img, is_training=False):
         """
@@ -115,9 +116,9 @@ class SSDNet:
         for i, layer_conf in enumerate(fm_conf):
             anchors = np.zeros([layer_conf.size, layer_conf.size, len(layer_conf.ratios) + 1, 4])
             for r in range(layer_conf.size):
-                cy = (r+0.5)/layer_conf.size**2
+                cy = (r+0.5)/float(layer_conf.size)
                 for c in range(layer_conf.size):
-                    cx = (c+0.5)/layer_conf.size**2
+                    cx = (c+0.5)/float(layer_conf.size)
                     for k, boxes in enumerate(boxes_list[i]):
                         anchors[r, c, k, :] = [cx, cy, boxes[0], boxes[1]]
 
@@ -155,32 +156,47 @@ class SSDNet:
                                                                         input_shape[1],
                                                                         anchor_num,
                                                                         4])
-        print(pred_pos.get_shape())
+
         return pred_class, pred_pos
 
-    def _confLoss(self, pos_mask, neg_mask, logits):
+    def _confLoss(self, pos_mask, neg_mask, label, logits):
         """
         Compute confidence loss.
-        :param pos_mask: positive example boolean mask.
-        :param neg_mask: negative example boolean mask.
-        :param glabel: ground truth label, shape[class_num]
+        :param pos_mask: positive example boolean mask, shape[width, height, anchor_num]
+        :param neg_mask: negative example boolean mask, shape[width, height, anchor_num]
+        :param label: ground truth label, shape[class_num]
         :param logits: predicted probability, shape[height, width, anchor_num, class_num]
         :return:
         """
 
         # Loss for each postition.
-        conf_loss = tf.nn.softmax(logits, axis=3)
+        conf_loss = tf.log(tf.nn.softmax(logits, axis=3))
+        cat_idx = tf.where(tf.greater(label, 0))
+        cat_idx = tf.cast(cat_idx, dtype=tf.int32)
+        cat_idx = tf.concat([[0, 0, 0], cat_idx[0]], axis=0)
+        conf_loss = tf.slice(conf_loss, cat_idx,
+                             [conf_loss.get_shape()[0],
+                             conf_loss.get_shape()[1], conf_loss.get_shape()[2], 1])
+        conf_loss = tf.squeeze(conf_loss, [3])
+
         pos_loss = tf.boolean_mask(conf_loss, pos_mask)
         neg_loss = tf.boolean_mask(conf_loss, neg_mask)
 
+        self._val['neg_loss'].append(neg_loss)
+
         # Top-k negative loss.
-        pos_num = tf.reduce_sum(tf.cast(pos_mask, dtype=tf.int8))
-        neg_num = tf.reduce_sum(tf.cast(neg_mask, dtype=tf.int8))
-        neg_loss = tf.nn.top_k(neg_loss, tf.minimum(neg_num, 3*pos_num))[0]
+        pos_num = tf.reduce_sum(tf.cast(pos_mask, dtype=tf.int32))
+        neg_num = tf.reduce_sum(tf.cast(neg_mask, dtype=tf.int32))
+        neg_loss = tf.cond(tf.equal(tf.multiply(neg_num, pos_num), 0),
+                           lambda :tf.constant(0, dtype=tf.float32),
+                           lambda :tf.nn.top_k(neg_loss, tf.minimum(neg_num, tf.multiply(pos_num, 3)))[0])
 
         pos_loss = tf.reduce_sum(pos_loss)
         neg_loss = tf.reduce_sum(neg_loss)
         conf_loss = tf.negative(tf.add(pos_loss, neg_loss))
+
+        self._val['pos_num'].append(pos_num)
+        self._val['neg_num'].append(neg_num)
 
         return conf_loss
 
@@ -188,7 +204,7 @@ class SSDNet:
         """
         Compute location loss using ground truth bbox and predicted bbox.
         :param pos_mask: boolean positive mask.
-        :param gbbox: ground truth bbox, shape[4]: cx, cy, width, height.
+        :param gbbox: ground truth bbox, shape[4]: [cx, cy, width, height].
         :param bboxes: predicted bbox, shape[width, height, anchor_num, 4], 4: cx, cy, width, height.
         :return: Location loss.
         """
@@ -208,50 +224,55 @@ class SSDNet:
         return loc_loss
 
 
-    def loss(self, glabels, gbboxes, labels, bboxes):
+    def loss(self, glabels, gbboxes, pred_labels, pred_bboxes):
         """
         Compute loss.
         :param glabels: ground truth labels.
         :param gbboxes: gound truth bounding boxes.
-        :param labels: predicted labels.
+        :param labels: predicted labels, a list of predict for each layer.
         :param bboxes: predicted bounding boxes.
         :return: None
         """
         fm_conf = self._net_conf['featuremaps']
         anchors = self._anchors
 
-        """
-        Compute loss for each item in batch,
-        sum them up to total loss.
-        """
-        for b in range(self._net_conf['batch_size']):
-            glabel = glabels[b]
-            gbbox = gbboxes[b]
-            labels = labels[b]
-            bboxes = bboxes[b]
+        total_loss = tf.constant(0, dtype=tf.float32)
 
-            with tf.name_scope('LOSS'):
-                # for each layer, compute loss
-                for m, layer_conf in enumerate(fm_conf):
+        with tf.name_scope('LOSS'):
+            # for each layer, compute loss
+            for m, layer_conf in enumerate(fm_conf):
+                """
+                Compute loss for each item in batch,
+                sum them up to total loss.
+                """
+                labels = pred_labels[m]
+                bboxes = pred_bboxes[m]
+
+                for b in range(self._net_conf['batch_size']):
+                    glabel = glabels[b]
+                    gbbox = gbboxes[b]
+                    pred_label = labels[0]
+                    pred_bbox = bboxes[0]
+
                     # compute jaccard overlap.
-                    overlap = utils.jaccardIndex(tf.constant(anchors[layer_conf.layer_name], dtype=tf.float32),
-                                                 gbbox)
+                    overlap = utils.jaccardIndex(gbbox, tf.constant(anchors[layer_conf.layer_name], dtype=tf.float32))
 
                     # get positive and negtive mask accoding to overlap
                     pos_mask = utils.positiveMask(overlap)
                     neg_mask = tf.logical_not(pos_mask)
 
                     # count matched box number
-                    pos_count = tf.reduce_sum(tf.cast(pos_mask, dtype=tf.int64))
+                    pos_count = tf.reduce_sum(tf.cast(pos_mask, dtype=tf.int32))
 
                     # compute confidence loss and location loss
-                    conf_loss = self._confLoss(pos_mask, neg_mask, labels)
-                    loc_loss = self._locationLoss(pos_mask, anchors[layer_conf.layer_name], gbbox, bboxes)
+                    conf_loss = self._confLoss(pos_mask, neg_mask, glabel, pred_label)
+                    loc_loss = self._locationLoss(pos_mask, tf.constant(anchors[layer_conf.layer_name], dtype=tf.float32),
+                                                  gbbox, pred_bbox)
                     loc_loss = tf.multiply(loc_loss, self._net_conf['alpha'])
 
-                    cur_loss = tf.cond(tf.equal(pos_count, 0), lambda :tf.constant(0),
-                                         tf.divide(tf.add(conf_loss, loc_loss), pos_count))
+                    cur_loss = tf.cond(tf.equal(pos_count, 0), lambda: tf.constant(0, dtype=tf.float32),
+                                       lambda: tf.divide(tf.add(conf_loss, loc_loss), tf.cast(pos_count, tf.float32)))
 
-                    total_loss = tf.add(cur_loss)
+                    total_loss = tf.add(total_loss, cur_loss)
 
         return total_loss

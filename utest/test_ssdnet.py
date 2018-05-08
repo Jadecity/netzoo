@@ -5,6 +5,7 @@ import common.config as confutil
 import tensorflow as tf
 import tensorlayer as tl
 import numpy as np
+import common.utils as utils
 
 if __name__ == '__main__':
     g_conf = confutil.loadTrainConf()
@@ -19,9 +20,9 @@ if __name__ == '__main__':
     pred, logits, locations, endpoints = ssd_net.predict(input_img)
 
     # Compute loss and put them to tf.collections.LOSS and other loss.
-    input_labels = tf.placeholder(tf.int8, [None, ssd_conf['class_num']])
-    input_bboxes = tf.placeholder(tf.int8, [None, 4])
-    total_loss = ssd_net.loss(labels=logits, bboxes=locations, glabels=input_labels, gbboxes=input_bboxes)
+    input_labels = tf.placeholder(tf.float32, [None, ssd_conf['class_num']])
+    input_bboxes = tf.placeholder(tf.float32, [None, 4])
+    total_loss = ssd_net.loss(pred_labels=logits, pred_bboxes=locations, glabels=input_labels, gbboxes=input_bboxes)
 
     path = '/home/autel/data/exp_imgs'
     img_name = 'face.jpg'
@@ -29,23 +30,44 @@ if __name__ == '__main__':
     img = img[:224, :224]
     img = np.reshape(img, [1, 224, 224, 3])
 
-    glabels = np.zeros([10])
-    glabels[4] = 1
-    glabels = tf.constant(glabels)
-    glabels = tf.reshape(glabels, shape=[1, 10])
+    # glabels = np.zeros([10])
+    # glabels[4] = 1
+    # glabels = tf.constant(glabels)
+    # glabels = tf.reshape(glabels, shape=[1, 10])
+    #
+    # gboxes = np.array([0.2, 0.2, 0.1, 0.2])
+    # gboxes = tf.constant(gboxes, dtype=tf.float32)
+    # gboxes = tf.reshape(gboxes, shape=[1, 4])
 
-    gboxes = np.array([0.2, 0.2, 0.1, 0.2])
-    gboxes = tf.constant(gboxes)
-    gboxes = tf.reshape(gboxes, shape=[1, 4])
+    # Create optimizer.
+    optimizer = utils.getOptimizer(ssd_conf)
 
-    ss = tf.Session()
+    train_op = optimizer.minimize(total_loss)
 
     # initialize all variables in the session
-    tl.layers.initialize_global_variables(ss)
+    init = tf.global_variables_initializer()
+    local_init = tf.local_variables_initializer()
 
-    total_loss = ss.run((total_loss), feed_dict={input_img: img,
-                                                 input_labels: [[0,1]],
-                                                 input_bboxes:[[0.2, 0.2, 0.1, 0.2]]})
-    ss.close()
+    with tf.Session() as ss:
+        ss.run([init, local_init])
+        for itr_idx in range(1):
+            for i in range(len(ssd_conf['featuremaps'])):
+                ss.run(train_op, feed_dict={input_img: img,
+                                                input_labels: [[0,1,0,0,0]],
+                                                input_bboxes:[[0.2, 0.2, 0.1, 0.2]]})
 
-    print(total_loss)
+                # (pos_num, neg_num, neg_loss) = ss.run((ssd_net._val['pos_num'][i],
+                #         ssd_net._val['neg_num'][i],
+                #         ssd_net._val['neg_loss'][i]), feed_dict={input_img: img,
+                #                                 input_labels: [[0,1,0,0,0]],
+                #                                 input_bboxes:[[0.2, 0.2, 0.1, 0.2]]})
+                #
+                # print('%d--------' % i)
+                # print(pos_num)
+                # print(neg_num)
+                # print(neg_loss)
+
+    # gbboxes = [0.2, 0.2, 0.1, 0.2]
+    # utils.visualizeAnchors(ssd_net._anchors, ssd_conf, gbboxes)
+
+    # utils.visualizeOverlap(ssd_net._anchors, ssd_conf, gbboxes)

@@ -2,7 +2,7 @@ import tensorflow as tf
 import tensorlayer as tl
 from collections import namedtuple
 import common.utils as utils
-
+import matplotlib.pyplot as pl
 
 import numpy as np
 
@@ -51,16 +51,16 @@ if __name__ == '__main__':
     # c = ss.run(c)
     # print(c)
 
-    # block = np.zeros([2,2,3,4])
-    # b1 = tf.constant([1,1,3,3], dtype=tf.float32)
-    # # b2 = tf.constant([[2,2,3,3],
-    # #                   [3,3,3,3]], dtype=tf.float32)
-    # b2 = tf.constant(block, dtype=tf.float32)
-    # area = utils.jaccardIndex(b1, b2)
-    # ss = tf.InteractiveSession()
-    # area = ss.run(area)
-    # print(area)
-    # ss.close()
+    block = np.zeros([2,2,3,4])
+    b1 = tf.constant([1,1,3,3], dtype=tf.float32)
+    b2 = tf.constant([[[[1,1,3,3],
+                      [3,3,3,3]]]], dtype=tf.float32)
+
+    area = utils.jaccardIndex(b1, b2)
+    ss = tf.InteractiveSession()
+    area = ss.run(area)
+    print(area)
+    ss.close()
 
     # x = tf.constant(2)
     # y = tf.constant(5)
@@ -122,10 +122,39 @@ if __name__ == '__main__':
     # a = tf.constant([0, 1, 0.2, 1, 2, 3])
     # b = utils.smoothL1(a)
 
+    #
+    # gboxes = np.array([0.2, 0.2, 0.1, 0.2])
+    # gboxes = tf.constant(gboxes)
+    # gboxes = tf.reshape(gboxes, shape=[1, 4])
+    # ss = tf.InteractiveSession()
+    # loss = ss.run(gboxes)
+    # print(loss)
 
-    gboxes = np.array([0.2, 0.2, 0.1, 0.2])
-    gboxes = tf.constant(gboxes)
-    gboxes = tf.reshape(gboxes, shape=[1, 4])
-    ss = tf.InteractiveSession()
-    loss = ss.run(gboxes)
-    print(loss)
+    # a = 2.0
+    # b = tf.constant([2] ,dtype=tf.float32)
+    # d = tf.add(b, 2.0)
+    # c = tf.divide(d, 2.0)
+    # ss = tf.InteractiveSession()
+    # loss = ss.run(c)
+    # print(loss)
+    # img = np.zeros([10, 10])
+    # pl.imshow(img)
+    # print(pl.waitforbuttonpress())
+    # pl.close()
+
+    # a = np.array([0,1,0,0])
+    # b = np.array([[2,3,4,5]])
+    # a = tf.constant(a, dtype=tf.int32)
+    # b = tf.constant(b, dtype=tf.int32)
+    # c = tf.greater(a, 0)
+    # d = tf.where(c)
+    # e = tf.gather_nd(b, d)
+    # # g = tf.stack([0, d[0, 0]], axis=0)
+    # m = tf.concat([[0], d[0]], axis=0)
+    #
+    # f = tf.slice(b, m, [1, 1])
+    # g = tf.nn.top_k(a, 3)
+    #
+    # ss = tf.InteractiveSession()
+    # loss = ss.run(3*a)
+    # print(loss)
