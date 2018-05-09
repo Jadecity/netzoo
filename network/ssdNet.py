@@ -20,6 +20,7 @@ class SSDNet:
         self._net_conf = net_conf
         self._anchors = self._create_anchors(self._net_conf['featuremaps'])
         self._val = {'neg_num':[], 'neg_loss':[], 'pos_num':[]}
+        self._net = None
 
     def predict(self, input_img, is_training=False):
         """
@@ -62,6 +63,7 @@ class SSDNet:
                 net = tl.layers.Conv2dLayer(net, act=tf.nn.relu, shape=(2, 2, 128, 256), padding='VALID', name='conv10')
             endpoints[block] = net
 
+            self._net = net
         """
         Add classifier conv layers to each added feature map(including the last layer of backbone network).
         Prediction and localisations layers.
@@ -275,4 +277,19 @@ class SSDNet:
 
                     total_loss = tf.add(total_loss, cur_loss)
 
+        weight_loss = self._weightDecayLoss()
+        total_loss = tf.add(total_loss, tf.multiply(self._net_conf['weight_decay'], weight_loss))
         return total_loss
+
+    def _weightDecayLoss(self):
+        """
+        Compute weight decay loss.
+        :param ssd_net:
+        :return:
+        """
+        weights = self._net.all_params
+        weight_loss = tf.constant(0, dtype=tf.float32)
+        for conv_weight in weights:
+            weight_loss = tf.add(weight_loss, tf.nn.l2_loss(conv_weight))
+
+        return weight_loss

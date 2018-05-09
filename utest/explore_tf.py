@@ -51,16 +51,16 @@ if __name__ == '__main__':
     # c = ss.run(c)
     # print(c)
 
-    block = np.zeros([2,2,3,4])
-    b1 = tf.constant([1,1,3,3], dtype=tf.float32)
-    b2 = tf.constant([[[[1,1,3,3],
-                      [3,3,3,3]]]], dtype=tf.float32)
-
-    area = utils.jaccardIndex(b1, b2)
-    ss = tf.InteractiveSession()
-    area = ss.run(area)
-    print(area)
-    ss.close()
+    # block = np.zeros([2,2,3,4])
+    # b1 = tf.constant([1,1,3,3], dtype=tf.float32)
+    # b2 = tf.constant([[[[1,1,3,3],
+    #                   [3,3,3,3]]]], dtype=tf.float32)
+    #
+    # area = utils.jaccardIndex(b1, b2)
+    # ss = tf.InteractiveSession()
+    # area = ss.run(area)
+    # print(area)
+    # ss.close()
 
     # x = tf.constant(2)
     # y = tf.constant(5)
@@ -158,3 +158,48 @@ if __name__ == '__main__':
     # ss = tf.InteractiveSession()
     # loss = ss.run(3*a)
     # print(loss)
+
+
+    # a = tf.Variable([1,2,3], dtype=tf.float32)
+    # tf.add_to_collection('my_var', a)
+    # b = tf.get_collection('my_var')
+    # init = tf.global_variables_initializer()
+    # with tf.Session() as ss:
+    #     ss.run(init)
+    #     print(ss.run(b))
+
+    # a = tf.constant(np.ones([10, 10]), dtype=tf.float32)
+    # a = tf.reshape(a, (1, 10, 10, 1))
+    # input = tl.layers.InputLayer(a)
+    # net = tl.layers.Conv2dLayer(input, shape=(3,3,1, 10), name='conv1')
+    # net = tl.layers.FlattenLayer(net)
+    # net = tl.layers.DenseLayer(net, 5)
+    # print(net.all_params)
+    # loss = tf.constant(0, dtype=tf.float32)
+    #
+    # for var in tl.layers.get_variables_with_name('W_conv2d'):
+    #     tf.add(loss, tf.nn.l2_loss(var))
+    # print(loss.get_shape())
+
+    # net = tl.layers.PoolLayer(net, ksize=(1,2,2,1))
+    # tf.add_to_collection('weights', net.all_params)
+    # all_weights = tf.add_n(tf.reduce_sum(tf.get_collection('weights')))
+    # with tf.Session() as ss:
+    #     print(ss.run(loss))
+
+    # a = tf.constant(np.ones([1, 5]))
+    # m = tf.constant(1, tf.int32)
+    # b = tf.slice(a, [0, 0], [m, 1])
+    # a = 3
+    # b = tf.constant(4)
+    # c = tf.stack([b, a])
+    #
+    # with tf.Session() as ss:
+    #     print(ss.run(c))
+
+    a = [1,2,3]
+    b = np.array(a)
+    c = b.flatten()
+    print(c)
+
+    print(np.array([0]).flatten())

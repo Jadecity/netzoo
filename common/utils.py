@@ -19,15 +19,15 @@ def getOptimizer(opt_conf):
 
     return optimizer
 
-def makeOneHot(labels_batch, class_num):
+def makeOneHot(labels, class_num):
     """
     Tranform labels to one hot labels according to class number.
-    :param labels_batch: batch of labels.
+    :param labels: labels of one example
     :param class_num: number of total classes.
     :return: transformed label batch.
     """
-    batch_transformed = tf.one_hot(labels_batch, depth=class_num, dtype=tf.int32)
-    return batch_transformed
+    transformed = tf.one_hot(labels, depth=class_num, dtype=tf.int32)
+    return transformed
 
 def jaccardIndex(gbbox, bboxes):
     """
@@ -85,6 +85,9 @@ def positiveMask(overlap):
     """
 
     return tf.greater(overlap, 0.5)
+
+
+
 
 def visualizeAnchors(anchors, gconf, gbboxes):
     ftmap_conf = gconf['featuremaps']
@@ -160,3 +163,4 @@ def visualizeOverlap(anchors, gconf, gbboxes):
 
         plt.imshow(np.zeros([10,10]))
         plt.waitforbuttonpress()
+

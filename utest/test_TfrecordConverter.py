@@ -2,12 +2,13 @@ import common.tfrecordConverter as converter
 import json
 
 if __name__ == '__main__':
-    src_path = '/home/autel/data/INRIAPerson/Train/annotations_json'
-    data_home = '/home/autel/data/INRIAPerson/'
-    dest_path = '/home/autel/data/INRIAPerson/Train/tfrecords/pos'
+    src_path = '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/Annotations_json'
+    data_home = '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/JPEGImages'
+    dest_path = '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/tfrecords'
+    label = '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/classes.json'
 
     cvtr = converter.TfrecordConverter()
-    cvtr.encodeAll(src_path, data_home, dest_path, 1000)
+    cvtr.encodeAll(src_path, data_home, label, dest_path, 1000)
 
     # json.loads(r'{"imgname":"Train/pos/person_240.png", \
     # "imgsize": {"width" :"640","height": "480","channel": "3"},\

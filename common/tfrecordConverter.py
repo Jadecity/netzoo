@@ -6,7 +6,7 @@ import numpy as np
 
 
 def _int64List_feature(value):
-    return tf.train.Feature(int64_list=tf.train.Int64List(value=[x for x in value]))
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=value.flatten()))
 
 def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
@@ -23,17 +23,20 @@ class TfrecordConverter():
     def __init__(self):
         pass
 
-    def encodeAll(self, src_path, data_home, dest_path, cnt_max):
+    def encodeAll(self, src_path, data_home, label_file, dest_path, cnt_max):
         """
         Read json files in src_path, read corresponding image file,
         and convert them to tfrecord format.
         :param src_path: directory which contains json files.
         :param data_home: home prefix to image name in json files.
+        :param label_file: json file contains class and labels.
         :param dest_path: destination directory where to put tfrecords.
         :param cnt_max: max number of tfrecord in each file.
         :return: none.
         """
-        label_dict = {'PASperson': 1}
+        label_file = open(label_file, 'r')
+        label_dict = json.load(label_file)
+        label_file.close()
 
         cnt = 1
 
@@ -49,30 +52,38 @@ class TfrecordConverter():
             img_size = [ori_rcd['imgsize']['width'],
                         ori_rcd['imgsize']['height'],
                         ori_rcd['imgsize']['channel']]
+            img_size = np.array(img_size)
 
+            labels = []
+            bboxes = []
             for obj in ori_rcd['objects']:
-                labels = label_dict[obj['label']]
-                bboxes = [obj['x1'], obj['y1'], obj['x2'], obj['y2']]
+                labels.append(label_dict[obj['label']])
+                object = [obj['x1'], obj['y1'], obj['x2'], obj['y2']]
+                bboxes.append(object)
+            labels = np.array(labels)
+            bboxes = np.array(bboxes)
 
-                feature = {
-                    'image': _bytes_feature(img.tostring()),
-                    'size': _int64List_feature(img_size),
-                    'labels': _int64_feature(labels),
-                    'bboxes': _int64List_feature(bboxes)
-                }
+            feature = {
+                'image': _bytes_feature(img.tobytes()),
+                'size': _int64List_feature(img_size),
+                'labels': _int64List_feature(labels),
+                'bbox_num': _int64List_feature(np.array([np.shape(bboxes)[0]])),
+                'bboxes': _int64List_feature(bboxes)
+            }
 
-                # Create an example protocol buffer
-                example = tf.train.Example(features=tf.train.Features(feature=feature))
+            # Create an example protocol buffer
+            example = tf.train.Example(features=tf.train.Features(feature=feature))
 
-                # Writing the serialized example.
-                writer.write(example.SerializeToString())
+            # Writing the serialized example.
+            example_str = example.SerializeToString()
+            writer.write(example_str)
 
-                cnt = cnt + 1
+            cnt = cnt + 1
 
-                #write out records each cnt_max items
-                if 0 == cnt % cnt_max:
-                    writer.close()
-                    tfrecord_filename = os.path.join( dest_path, '%d.tfrecords' % (cnt))
-                    writer = tf.python_io.TFRecordWriter(tfrecord_filename)
+            #write out records each cnt_max items
+            if 0 == cnt % cnt_max:
+                writer.close()
+                tfrecord_filename = os.path.join( dest_path, '%d.tfrecords' % (cnt))
+                writer = tf.python_io.TFRecordWriter(tfrecord_filename)
 
         writer.close()
