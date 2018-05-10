@@ -21,6 +21,7 @@ class DataSet:
         """
 
         feature = {
+            'image_name': tf.FixedLenFeature([], dtype=tf.string),
             'image': tf.FixedLenFeature([], dtype=tf.string),
             'size': tf.FixedLenFeature([3], tf.int64),
             'labels': tf.VarLenFeature(tf.int64),
@@ -39,8 +40,9 @@ class DataSet:
         boxes_shape = tf.stack([bbox_num[0], 4])
         bboxes = tf.sparse_tensor_to_dense(context_parsed['bboxes'])
         bboxes = tf.reshape(bboxes, shape=boxes_shape)
+        image_name = context_parsed['image_name']
 
-        return image, size, bbox_num, labels, bboxes
+        return image_name, image, size, bbox_num, labels, bboxes
 
     def createDataSet(self, path, batchsize=1, parser=None):
         """
@@ -63,7 +65,7 @@ class DataSet:
 
         dataset = tf.data.TFRecordDataset(rcd_files)
         dataset = dataset.map(map_func=parser)
-        padding_shape = ([None], [None], [None], tf.TensorShape([None]), tf.TensorShape([None, 4]))#, tf.TensorShape([None]))
+        padding_shape = ([], [None], [None], [None], tf.TensorShape([None]), tf.TensorShape([None, 4]))#, tf.TensorShape([None]))
         dataset = dataset.padded_batch(batchsize, padded_shapes=padding_shape)
         self._dataset = dataset
         self._itr = dataset.make_one_shot_iterator()
@@ -75,21 +77,15 @@ class DataSet:
         :return:
         """
 
-        # image_batch, size_batch, bbox_num, \
-        imgs, sizes, box_nums, labels, bboxes = self._itr.get_next() #, bbox_num_batch, labels_batch, bboxes_batch
+        img_name_batch, img_batch, size_batch, box_num_batch, labels_batch, bboxes_batch = self._itr.get_next() #, bbox_num_batch, labels_batch, bboxes_batch
 
-        # print(size_batch.get_shape())
-        # for bbox_num, bboxes in zip(bbox_num_batch, bboxes_batch):
-        #     labels = tf.slice(bboxes, [0, 0], [tf.cast(bbox_num, dtype=tf.int32), 1])
-        #     bboxes = tf.slice(bboxes, [0, 1], [tf.cast(bbox_num, dtype=tf.int32), 4])
-        #     labels = tf.squeeze(labels)
-        #     labels = utils.makeOneHot(labels, self._class_num)
-        #
-        #     labels_batch.append(labels)
-        #     boxes_batch.append(bboxes)
+        # remove label paddings and create one-hot labels
+        labels_mask = tf.greater(labels_batch, 0)
+        one_hot_labels = tf.one_hot(labels_batch, 20)
+        labels_batch = tf.boolean_mask(one_hot_labels, labels_mask, axis=0)
 
-        # image_batch, size_batch, \
+        # remove bbox paddings
+        bboxes_batch = tf.boolean_mask(bboxes_batch, labels_mask, axis=0)
 
-
-        return imgs, sizes, box_nums, labels, bboxes
+        return img_name_batch, img_batch, size_batch, box_num_batch, labels_batch, bboxes_batch
 

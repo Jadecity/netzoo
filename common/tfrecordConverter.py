@@ -23,7 +23,7 @@ class TfrecordConverter():
     def __init__(self):
         pass
 
-    def encodeAll(self, src_path, data_home, label_file, dest_path, cnt_max):
+    def encodeAll(self, src_path, data_home, label_file, dest_path, cnt_max, preprocessor=None):
         """
         Read json files in src_path, read corresponding image file,
         and convert them to tfrecord format.
@@ -63,7 +63,12 @@ class TfrecordConverter():
             labels = np.array(labels)
             bboxes = np.array(bboxes)
 
+            # Preprocess image and bounding boxes.
+            if None != preprocessor:
+                img, img_size, labels, bboxes = preprocessor(img, img_size, bboxes)
+
             feature = {
+                'image_name':_bytes_feature(tf.compat.as_bytes(ori_rcd['imgname'])),
                 'image': _bytes_feature(img.tobytes()),
                 'size': _int64List_feature(img_size),
                 'labels': _int64List_feature(labels),

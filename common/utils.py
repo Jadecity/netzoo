@@ -4,6 +4,7 @@ from matplotlib import pyplot as plt
 import matplotlib.patches as patches
 
 from collections import namedtuple
+import skimage.transform as trans
 
 def getOptimizer(opt_conf):
     """
@@ -86,9 +87,6 @@ def positiveMask(overlap):
 
     return tf.greater(overlap, 0.5)
 
-
-
-
 def visualizeAnchors(anchors, gconf, gbboxes):
     ftmap_conf = gconf['featuremaps']
     layer_num = len(anchors)
@@ -139,7 +137,7 @@ def visualizeAnchors(anchors, gconf, gbboxes):
                 plt.pause(0.01)
                 ax.clear()
 
-        plt.close()
+        plt.close('all')
 
 def visualizeOverlap(anchors, gconf, gbboxes):
     ftmap_conf = gconf['featuremaps']
@@ -163,4 +161,101 @@ def visualizeOverlap(anchors, gconf, gbboxes):
 
         plt.imshow(np.zeros([10,10]))
         plt.waitforbuttonpress()
+
+def visulizeBBox(img, bboxes):
+    fig, ax = plt.subplots(1)
+    ax.imshow(img)
+    for box in bboxes:
+        # Create a Rectangle patch
+        rect = patches.Rectangle((box[0], box[1]), box[2] - box[0], box[3] - box[1], linewidth=1, edgecolor='r', facecolor='none')
+
+        # Add the patch to the Axes
+        ax.add_patch(rect)
+
+    plt.draw()
+
+class ResizePreprocessor:
+    def __init__(self, conf):
+        """
+        This version, destination size should be square.
+        :param conf:
+        """
+
+        self._dest_size = conf['dest_size']
+
+    def __call__(self, img, size, bboxes):
+        """
+        Resize to dest size but keep all bounding boxes.
+        Resize with ratio kept is first applied, then crop to dest size.
+        Bbox positions are adjusted according to the new size.
+        :param img: ndarray [MxNxC]
+        :param size: ndarray [w, h, c]
+        :param bboxes: ndarray, [Kx(x1, y1, x2, y2)]
+        :return: new img, size, bboxes
+        """
+        w, h = size[0], size[1]
+        wd, hd = self._dest_size[0], self._dest_size[1]
+        ratio = np.float(w)/np.float(h)
+        if ratio > 1:
+            hm = hd
+            wm = np.int(hm * ratio)
+        else:
+            wm = wd
+            hm = np.int(wm / ratio)
+
+        # Scale with ratio kept.
+        img_d = trans.resize(image=img, output_shape=np.array([hm, wm]), order=2)
+
+        # Scale bboxes
+        w_s, h_s = wm / w, hm / h
+        bboxes[:, 0] = (bboxes[:, 0] * w_s).astype(np.int)
+        bboxes[:, 2] = (bboxes[:, 2] * w_s).astype(np.int)
+        bboxes[:, 1] = (bboxes[:, 1] * h_s).astype(np.int)
+        bboxes[:, 3] = (bboxes[:, 3] * h_s).astype(np.int)
+
+        # Crop center area
+        cx, cy = wm / 2, hm / 2
+        x, y = np.int(cx - wd/2), np.int(cy - hd/2)
+        min_x = np.min(bboxes[:, 0])
+        min_y = np.min(bboxes[:, 1])
+        max_x = np.max(bboxes[:, 2])
+        max_y = np.max(bboxes[:, 3])
+        min_x, min_y = min(min_x, x), min(min_y, y)
+        max_x, max_y = max(max_x, x+wd-1), max(max_y, y+hd-1)
+
+        img_d = img_d[min_y:max_y + 1, min_x:max_x + 1]
+        bboxes[:, 0] -= min_x
+        bboxes[:, 2] -= min_x
+        bboxes[:, 1] -= min_y
+        bboxes[:, 3] -= min_y
+
+        r_w, r_h = max_x - min_x, max_y - min_y
+        if r_w > wd or r_h > hd:
+            img_d, bboxes = self._rescale2dest(img_d, np.array([r_w, r_h]), bboxes)
+
+        return img_d, self._dest_size, bboxes
+
+    def _rescale2dest(self, img, size, bboxes):
+        w, h = size[0], size[1]
+        wd, hd = self._dest_size[0], self._dest_size[1]
+
+        # Scale with ratio kept.
+        img_d = trans.resize(image=img, output_shape=np.array([hd, wd]), order=2)
+
+        # Scale bboxes
+        w_s, h_s = wd / w, hd / h
+        bboxes[:, 0] = (bboxes[:, 0] * w_s).astype(np.int)
+        bboxes[:, 2] = (bboxes[:, 2] * w_s).astype(np.int)
+        bboxes[:, 1] = (bboxes[:, 1] * h_s).astype(np.int)
+        bboxes[:, 3] = (bboxes[:, 3] * h_s).astype(np.int)
+
+        return img_d, bboxes
+
+def createResizePreprocessor(gconf):
+    """
+    Create a dataset preprocessor according to gconf.
+    :param gconf: configuration, should be {'dest_size':[224, 224]}
+    :return: a callable object.
+    """
+    return ResizePreprocessor(gconf)
 
