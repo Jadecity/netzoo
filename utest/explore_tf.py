@@ -6,6 +6,7 @@ import matplotlib.pyplot as pl
 
 import numpy as np
 
+
 if __name__ == '__main__':
     # a = tf.placeholder(tf.int8, [2, 3])
     # b = tf.placeholder(tf.int8, [None, None, 3])
@@ -197,9 +198,10 @@ if __name__ == '__main__':
     # with tf.Session() as ss:
     #     print(ss.run(c))
 
-    a = [1,2,3]
-    b = np.array(a)
-    c = b.flatten()
-    print(c)
-
-    print(np.array([0]).flatten())
+    # a = [1,2,3]
+    # b = np.array(a)
+    # c = b.flatten()
+    # print(c)
+    #
+    # print(np.array([0]).flatten())
+    pass

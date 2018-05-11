@@ -5,6 +5,7 @@ import matplotlib.patches as patches
 
 from collections import namedtuple
 import skimage.transform as trans
+import cv2
 
 def getOptimizer(opt_conf):
     """
@@ -134,7 +135,6 @@ def visualizeAnchors(anchors, gconf, gbboxes):
                 ax.add_patch(rect)
 
                 # plt.waitforbuttonpress(timeout=1)
-                plt.pause(0.01)
                 ax.clear()
 
         plt.close('all')
@@ -162,8 +162,13 @@ def visualizeOverlap(anchors, gconf, gbboxes):
         plt.imshow(np.zeros([10,10]))
         plt.waitforbuttonpress()
 
-def visulizeBBox(img, bboxes):
-    fig, ax = plt.subplots(1)
+def visulizeBBox(img, bboxes, hold=False):
+    if not hold:
+        fig, ax = plt.subplots(1)
+    else:
+        ax = plt.gca()
+
+    ax.clear()
     ax.imshow(img)
     for box in bboxes:
         # Create a Rectangle patch
@@ -204,7 +209,8 @@ class ResizePreprocessor:
             hm = np.int(wm / ratio)
 
         # Scale with ratio kept.
-        img_d = trans.resize(image=img, output_shape=np.array([hm, wm]), order=2)
+        # img_d = trans.resize(image=img, output_shape=([hm, wm]), preserve_range=True)
+        img_d = cv2.resize(img, (wm, hm))
 
         # Scale bboxes
         w_s, h_s = wm / w, hm / h
@@ -223,7 +229,7 @@ class ResizePreprocessor:
         min_x, min_y = min(min_x, x), min(min_y, y)
         max_x, max_y = max(max_x, x+wd-1), max(max_y, y+hd-1)
 
-        img_d = img_d[min_y:max_y + 1, min_x:max_x + 1]
+        img_d = img_d[min_y:max_y + 1, min_x:max_x + 1, :]
         bboxes[:, 0] -= min_x
         bboxes[:, 2] -= min_x
         bboxes[:, 1] -= min_y
@@ -233,14 +239,18 @@ class ResizePreprocessor:
         if r_w > wd or r_h > hd:
             img_d, bboxes = self._rescale2dest(img_d, np.array([r_w, r_h]), bboxes)
 
-        return img_d, self._dest_size, bboxes
+        return img_d.astype(np.uint8), self._dest_size, bboxes
 
     def _rescale2dest(self, img, size, bboxes):
         w, h = size[0], size[1]
         wd, hd = self._dest_size[0], self._dest_size[1]
 
         # Scale with ratio kept.
-        img_d = trans.resize(image=img, output_shape=np.array([hd, wd]), order=2)
+        # img_d = trans.resize(image=img, output_shape=([hd, wd]), preserve_range=True)
+        img_d = cv2.resize(img, (wd, hd))
+        # plt.imshow(img_d)
+        # plt.draw()
+        # plt.waitforbuttonpress()
 
         # Scale bboxes
         w_s, h_s = wd / w, hd / h

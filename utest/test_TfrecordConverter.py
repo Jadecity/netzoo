@@ -1,14 +1,18 @@
 import common.tfrecordConverter as converter
 import json
+import common.utils as utils
+import numpy as np
 
 if __name__ == '__main__':
     src_path = '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/Annotations_json'
     data_home = '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/JPEGImages'
     dest_path = '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/tfrecords'
     label = '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/classes.json'
+    class_file = '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/imgname_label.json'
 
     cvtr = converter.TfrecordConverter()
-    cvtr.encodeAll(src_path, data_home, label, dest_path, 1000)
+    resizer = utils.createResizePreprocessor({'dest_size': np.array([300, 300, 3])})
+    cvtr.encodeAll(src_path, data_home, label, class_file, dest_path, 1000, preprocessor=resizer)
 
     # json.loads(r'{"imgname":"Train/pos/person_240.png", \
     # "imgsize": {"width" :"640","height": "480","channel": "3"},\
