@@ -71,6 +71,7 @@ class TfrecordConverter():
             # Preprocess image and bounding boxes.
             if None != preprocessor:
                 img, img_size, bboxes = preprocessor(img, img_size, bboxes)
+
                 # plt.imshow(img)
                 # plt.draw()
                 # plt.waitforbuttonpress()

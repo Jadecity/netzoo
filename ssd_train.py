@@ -3,7 +3,6 @@ Scripts for training a ssd network.
 """
 
 import tensorflow as tf
-import tensorlayer as tl
 import network.ssdConf as ssdConf
 import network.mobileConf as mobileConf
 import common.dataset as dt
@@ -11,8 +10,6 @@ import network.ssdNet as ssdNet
 import network.mobileNet as mobileNet
 import common.utils as utils
 import common.config as script_conf
-
-
 
 def main(_):
     """

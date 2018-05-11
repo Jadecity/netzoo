@@ -69,11 +69,13 @@ class MobileNet(ftBase.FeatureExtractorBase):
                 net = tl.layers.PoolLayer(net, ksize=(1, 7, 7, 1), strides=(1,1,1,1), padding='VALID', pool=tf.nn.avg_pool)#7x7x1024 -> 1x1x1024
                 self._all_layers['avgpool-layer-15'] = net
 
+            print(net.outputs.get_shape())
+
             # size = (tf.shape(net.outputs)[0], tf.shape(net.outputs)[1], tf.shape(net.outputs)[2],
             #       tf.shape(net.outputs)[3])
             with tf.variable_scope('fc-layer-16'):
                 net = tl.layers.FlattenLayer(net)
-                net = tl.layers.DenseLayer(net, self._conf['class_num'], act=tf.nn.relu)#1x1x1024 ->1x1x1000
+                net = tl.layers.DenseLayer(net, self._conf['class_num'], act=tf.nn.relu)#1x1x1024 ->1x1xclass_num
                 self._all_layers['fc-layer-16'] = net
 
         return net, self._all_layers

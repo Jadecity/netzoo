@@ -1,4 +1,5 @@
 #ignore all kind of files
 *.pyc
 .idea/
+log/
 example_code.txt

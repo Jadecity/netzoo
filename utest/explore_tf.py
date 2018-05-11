@@ -191,12 +191,13 @@ if __name__ == '__main__':
     # a = tf.constant(np.ones([1, 5]))
     # m = tf.constant(1, tf.int32)
     # b = tf.slice(a, [0, 0], [m, 1])
-    # a = 3
-    # b = tf.constant(4)
-    # c = tf.stack([b, a])
-    #
-    # with tf.Session() as ss:
-    #     print(ss.run(c))
+    # a = [3]
+    # b = tf.constant([4,4])
+    # c = tf.concat([b, a], axis=0)
+    c = tf.constant('loss')
+
+    with tf.Session() as ss:
+        print(ss.run(c))
 
     # a = [1,2,3]
     # b = np.array(a)

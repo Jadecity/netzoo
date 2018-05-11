@@ -179,6 +179,34 @@ def visulizeBBox(img, bboxes, hold=False):
 
     plt.draw()
 
+def visulizeClass(img, label, class_dict, hold=False):
+    """
+    Visualize image and its class name.
+    :param img: image.
+    :param label: class label in number.
+    :param class_dict: class name and its number dictionary.
+    :return: None.
+    """
+    class_name = ''
+    for name in class_dict.keys():
+        if label == class_dict[name]:
+            class_name = name
+            break
+
+    # Show image and its label.
+    if not hold:
+        fig, ax = plt.subplots(1)
+    else:
+        ax = plt.gca()
+
+    ax.clear()
+    ax.imshow(img)
+
+    # Add the patch to the Axes
+    ax.text(10, 10, class_name)
+
+    plt.draw()
+
 class ResizePreprocessor:
     def __init__(self, conf):
         """
@@ -235,7 +263,7 @@ class ResizePreprocessor:
         bboxes[:, 1] -= min_y
         bboxes[:, 3] -= min_y
 
-        r_w, r_h = max_x - min_x, max_y - min_y
+        r_w, r_h = max_x - min_x + 1, max_y - min_y + 1
         if r_w > wd or r_h > hd:
             img_d, bboxes = self._rescale2dest(img_d, np.array([r_w, r_h]), bboxes)
 

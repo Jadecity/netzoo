@@ -35,6 +35,7 @@ class DataSet:
 
         image = tf.decode_raw(context_parsed['image'], tf.uint8)
         size = context_parsed['size']
+        image = tf.reshape(image, size)
         labels = tf.sparse_tensor_to_dense(context_parsed['labels'])
 
         bbox_num = context_parsed['bbox_num']
@@ -61,17 +62,17 @@ class DataSet:
         if None == parser:
             parser = self._parse_func
 
-        # rcd_files = glob.glob(os.path.join(path, '*.tfrecords'))
-        rcd_files = ['/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/tfrecords/1.tfrecords']
+        rcd_files = glob.glob(os.path.join(path, '*.tfrecords'))
+        # rcd_files = ['/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/tfrecords/1.tfrecords']
         if len(rcd_files) == 0:
             raise FileNotFoundError('No TFRecords file found in %s!' % path)
 
         dataset = tf.data.TFRecordDataset(rcd_files)
         dataset = dataset.map(map_func=parser)
-        padding_shape = ([], [None], [None], [], [], tf.TensorShape([None]), tf.TensorShape([None, 4]))#, tf.TensorShape([None]))
+        padding_shape = ([], [None, None, None], [None], [], [], tf.TensorShape([None]), tf.TensorShape([None, 4]))#, tf.TensorShape([None]))
         dataset = dataset.padded_batch(batchsize, padded_shapes=padding_shape)
         self._dataset = dataset
-        self._itr = dataset.make_one_shot_iterator()
+        self._itr = dataset.make_initializable_iterator()
         return
 
     def getNext(self):
