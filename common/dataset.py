@@ -36,6 +36,9 @@ class DataSet:
         image = tf.decode_raw(context_parsed['image'], tf.uint8)
         size = context_parsed['size']
         image = tf.reshape(image, size)
+        # image = tf.cast(image, tf.float32)
+        # img_mean = tf.fill([224, 224, 3], 125.0)
+        # image = tf.subtract(image, img_mean)
         labels = tf.sparse_tensor_to_dense(context_parsed['labels'])
 
         bbox_num = context_parsed['bbox_num']

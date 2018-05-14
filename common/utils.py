@@ -187,6 +187,7 @@ def visulizeClass(img, label, class_dict, hold=False):
     :param class_dict: class name and its number dictionary.
     :return: None.
     """
+    label = np.argmax(label) + 1
     class_name = ''
     for name in class_dict.keys():
         if label == class_dict[name]:
@@ -203,7 +204,7 @@ def visulizeClass(img, label, class_dict, hold=False):
     ax.imshow(img)
 
     # Add the patch to the Axes
-    ax.text(10, 10, class_name)
+    ax.text(10, 10, class_name, color='r', bbox=dict(facecolor='green', alpha=0.5))
 
     plt.draw()
 

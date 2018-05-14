@@ -194,10 +194,14 @@ if __name__ == '__main__':
     # a = [3]
     # b = tf.constant([4,4])
     # c = tf.concat([b, a], axis=0)
-    c = tf.constant('loss')
+    c = tf.constant([[1,2,3], [4,5,3]])
+    d = tf.argmax(c, 1)
 
     with tf.Session() as ss:
-        print(ss.run(c))
+        print(ss.run(d))
+
+    a = [1,2,3]
+    print(np.argmax(a))
 
     # a = [1,2,3]
     # b = np.array(a)

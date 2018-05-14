@@ -38,9 +38,10 @@ def main(_):
     dataset_itr = dataset._itr
 
     # Predict labels
+    # img_batch = tf.cast(input_imgs, tf.float32)
     input_imgs = tf.placeholder(tf.float32, [None, gconf['input_size'], gconf['input_size'], 3])
-    alexnet, _ = nets.resnet_v2.resnet_v2_50(input_imgs, num_classes=20, is_training=True)
-    logits = tf.squeeze(alexnet, axis=[1,2])
+    alexnet, _ =  nets.resnet_v2.resnet_v2_50(input_imgs, num_classes=20, is_training =True)
+    logits = alexnet
 
     #  Compute loss
     labels = tf.placeholder(tf.float32, [None, gconf['class_num']])
@@ -48,7 +49,7 @@ def main(_):
     loss = tf.losses.get_total_loss()
     tf.summary.scalar('loss', loss)
 
-    optimizer = tf.train.AdamOptimizer(learning_rate=gconf['learning_rate'])
+    optimizer = tf.train.GradientDescentOptimizer(learning_rate=gconf['learning_rate'])
     train_op = optimizer.minimize(loss)
 
     correct_prediction = tf.equal(tf.argmax(logits, axis=1), tf.argmax(labels, axis=1))
@@ -82,7 +83,7 @@ def main(_):
                     #                                                       labels: labels_input});
                     # print(lab_pred, lab_batch)
                     # exit(0)
-
+                    #
                     # for img, class_onehot in zip(imgs_input, labels_input):
                     #     utils.visulizeClass(img, class_onehot, class_dict, hold=True)
                     #     plt.waitforbuttonpress()
@@ -100,5 +101,3 @@ def main(_):
 
 if __name__ == '__main__':
     tf.app.run()
-
-

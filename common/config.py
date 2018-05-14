@@ -9,12 +9,12 @@ def loadTrainConf():
     """
     train_conf = {}
     train_conf['class_num'] = 20
-    train_conf['batch_size'] = 10
-    train_conf['epoch_num'] = 1
+    train_conf['batch_size'] = 20
+    train_conf['epoch_num'] = 10
 
     train_conf['optimizer'] = 'AdamOptimizer'
     train_conf['epsilon'] = 1e-8
-    train_conf['learning_rate'] = 0.0001
+    train_conf['learning_rate'] = 0.01
     train_conf['weight_decay'] = 0.0005
 
     train_conf['dataset_path'] = '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/tfrecords'
