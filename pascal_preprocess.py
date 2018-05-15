@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 import glob
 import json
 import os
+import math
 
 def annotation2json(ann_path, dest_json_path):
     """
@@ -44,10 +45,10 @@ def annotation2json(ann_path, dest_json_path):
             bndbox = obj.find('bndbox')
             bboxes.append({
                 'label':obj.find('name').text,
-                'x1': int(bndbox.find('xmin').text),
-                'y1': int(bndbox.find('ymin').text),
-                'x2': int(bndbox.find('xmax').text),
-                'y2': int(bndbox.find('ymax').text)
+                'x1': int(math.floor(float(bndbox.find('xmin').text))),
+                'y1': int(math.floor(float(bndbox.find('ymin').text))),
+                'x2': int(math.floor(float(bndbox.find('xmax').text))),
+                'y2': int(math.floor(float(bndbox.find('ymax').text)))
             })
             class_list[obj.find('name').text] = 0
 
@@ -95,22 +96,8 @@ def filename2label(label_file, txt_path, dest_path):
 if __name__ == '__main__':
     ann_path = '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/Annotations'
     dest_path = '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/Annotations_json'
+    annotation2json(ann_path, dest_path)
 
-    # annotation2json(ann_path, dest_path)
-
-    filename2label('/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/classes.json',
-                   '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/ImageSets/Main',
-                   '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/')
-    # a = ['a', 'b', 'c']
-    # b = [x for x in a if x.endswith('a')]
-    # print(b)
-    # country_data_as_string = r"""<annotation>
-    #                                 <filename>000138.jpg</filename>
-    #                             </annotation>
-    #                             """
-    # root = ET.fromstring(country_data_as_string)
-    # filename = root.find('filename')
-    # print(filename.text)
-    # a = {'a': 1, 'b':1}
-    # for i, key in enumerate(a.keys()):
-    #     print('i:%d, key:%s' % (i, key))
+    # filename2label('/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2012/classes.json',
+    #                '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2012/ImageSets/Main',
+    #                '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2012/')
