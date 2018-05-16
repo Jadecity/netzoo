@@ -179,20 +179,45 @@ def visulizeBBox(img, bboxes, hold=False):
 
     plt.draw()
 
-def visulizeClass(img, label, class_dict, hold=False):
+def visulizeClass(img, label, label_dict, hold=False):
     """
     Visualize image and its class name.
     :param img: image.
     :param label: class label in number.
-    :param class_dict: class name and its number dictionary.
+    :param label_dict: lable name and its number dictionary.
     :return: None.
     """
-    label = np.argmax(label) + 1
+    # label = np.argmax(label) + 1
     class_name = ''
-    for name in class_dict.keys():
-        if label == class_dict[name]:
+    for name in label_dict.keys():
+        if label == label_dict[name]:
             class_name = name
             break
+
+    # Show image and its label.
+    if not hold:
+        fig, ax = plt.subplots(1)
+    else:
+        ax = plt.gca()
+
+    ax.clear()
+    ax.imshow(img)
+
+    # Add the patch to the Axes
+    ax.text(10, 10, class_name, color='r', bbox=dict(facecolor='green', alpha=0.5))
+
+    plt.draw()
+
+def visulizeClassV2(img, label, label_name_list, hold=False):
+    """
+    Visualize image and its class name.
+    :param img: image.
+    :param label: class label in number.
+    :param label_name_list: a list of lable name.
+    :return: None.
+    """
+    # label = np.argmax(label) + 1
+    class_name = label_name_list[label]
 
     # Show image and its label.
     if not hold:

@@ -39,9 +39,9 @@ def test_tfrecord_create(repeat_num):
         feature = {
             'name': _bytes_feature(tf.compat.as_bytes('abc')),
             'image': _bytes_feature(np.array([6,6,6], dtype=np.int64).tobytes()),
-            'bsize': _int64List_feature(bboxes),
+            # 'bsize': _int64List_feature(bboxes),
+            'bsize': _int64List_feature(np.array([])),
             'label': _int64List_feature(np.array([5]))
-            # 'bboxes': _int64List_feature(bboxes)
         }
 
         # Create an example protocol buffer

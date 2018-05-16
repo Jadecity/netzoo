@@ -74,6 +74,8 @@ class DataSet:
         dataset = dataset.map(map_func=parser)
         padding_shape = ([], [None, None, None], [None], [], [], tf.TensorShape([None]), tf.TensorShape([None, 4]))#, tf.TensorShape([None]))
         dataset = dataset.padded_batch(batchsize, padded_shapes=padding_shape)
+        dataset = dataset.shuffle(buffer_size=200)
+        dataset.prefetch(buffer_size=1000)
         self._dataset = dataset
         self._itr = dataset.make_initializable_iterator()
         return

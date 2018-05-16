@@ -46,6 +46,7 @@ def main(_):
     labels = tf.placeholder(tf.float32, [None, gconf['class_num']])
     tf.losses.softmax_cross_entropy(onehot_labels=labels, logits=logits)
     loss = tf.losses.get_total_loss()
+    weight_loss = tf.losses.get_regularization_loss()
     tf.summary.scalar('loss', loss)
 
     optimizer = tf.train.AdamOptimizer(learning_rate=gconf['learning_rate'], epsilon=0.1)
@@ -88,7 +89,7 @@ def main(_):
                     #     utils.visulizeClass(img, class_onehot, class_dict, hold=True)
                     #     plt.waitforbuttonpress()
 
-                    summary_val, loss_val, train_acc, _ = sess.run([summary, loss, accuracy, train_op], feed_dict={input_imgs:imgs_input,
+                    summary_val, loss_val, weight_loss_val,  train_acc, _ = sess.run([summary, loss, weight_loss, accuracy, train_op], feed_dict={input_imgs:imgs_input,
                                                                           labels: labels_input})
 
                     # summary_val, loss_val, train_acc = sess.run([summary, loss, accuracy],
@@ -96,7 +97,7 @@ def main(_):
                     #                                                       labels: labels_input})
                     if step_cnt % gconf['log_step'] == 0:
                         tb_log_writer.add_summary(summary_val, step_cnt)
-                        print('Step %d, loss: %f, train_acc: %f'%(step_cnt, loss_val, train_acc))
+                        print('Step %d, loss: %f, weight_loss: %f, train_acc: %f'%(step_cnt, loss_val, weight_loss_val, train_acc))
                 except tf.errors.OutOfRangeError:
                     # log statistics
                     # break

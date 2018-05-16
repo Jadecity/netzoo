@@ -11,7 +11,7 @@ if __name__ == '__main__':
     trainConf = script_conf.loadTrainConf()
 
     dataset = dt.DataSet(path = trainConf['dataset_path'],
-                         batchsize = 10,
+                         batchsize = trainConf['batch_size'],
                          class_num = trainConf['class_num'])
 
     # img_batch, size_batch, \
@@ -36,19 +36,19 @@ if __name__ == '__main__':
             # print(one_hot_labels)
             # print(img_batch, labels_batch, bboxes_batch)
 
-            for i in range(10):
+            for i in range(trainConf['batch_size']):
                 shape = [sizes_batch[i, 1], sizes_batch[i, 0], sizes_batch[i, 2]]
                 img = img_batch[i]
                 # img = np.fromstring(img, dtype=np.uint8)
                 img.shape = shape
 
-                box_num = box_num_batch[i]
-                if i > 0:
-                    start_idx = np.sum(box_num_batch[:i])
-                else:
-                    start_idx = 0
-                bboxes = bboxes_batch[start_idx:start_idx + box_num]
-
+                # box_num = box_num_batch[i]
+                # if i > 0:
+                #     start_idx = np.sum(box_num_batch[:i])
+                # else:
+                #     start_idx = 0
+                # bboxes = bboxes_batch[start_idx:start_idx + box_num]
+                #
                 img_name = img_name_batch[i]
 
                 print(img_name)
@@ -60,7 +60,7 @@ if __name__ == '__main__':
                 # img, size, bboxes = resizer(img, sizes_batch[i], bboxes)
 
                 # utils.visulizeBBox(img, bboxes, True)
-                utils.visulizeClass(img, class_id_batch[i], class_dict)
+                utils.visulizeClass(img, class_id_batch[i], class_dict, hold=True)
                 plt.waitforbuttonpress()
                 # plt.close('all')
                 #

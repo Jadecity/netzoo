@@ -4,6 +4,8 @@ import json
 import tensorlayer.visualize as vis
 import numpy as np
 import matplotlib.pyplot as plt
+import cv2
+import common.utils as utils
 
 def _int64List_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=value.flatten()))
@@ -66,41 +68,40 @@ class TfrecordConverter():
             labels = np.array(labels)
             bboxes = np.array(bboxes)
 
-            class_id = label_dict[class_dict[ori_rcd['imgname']]]
+            # precess each bbox as a example
+            for label, bbox in zip(labels, bboxes):
+                box_img = img[bbox[1]:bbox[3], bbox[0]:bbox[2]]
+                box_img = cv2.resize(box_img, dsize=(224, 224))
+                cur_img_size = np.array([224, 224, 3])
 
-            # Preprocess image and bounding boxes.
-            if None != preprocessor:
-                img, img_size, bboxes = preprocessor(img, img_size, bboxes)
-
-                # plt.imshow(img)
-                # plt.draw()
+                # utils.visulizeClass(box_img, label, label_dict, hold=True)
                 # plt.waitforbuttonpress()
 
-            feature = {
-                'image_name':_bytes_feature(tf.compat.as_bytes(ori_rcd['imgname'])),
-                'image': _bytes_feature(img.tobytes()),
-                'size': _int64List_feature(img_size),
-                'class': _int64_feature(class_id),
-                'labels': _int64List_feature(labels),
-                'bbox_num': _int64_feature(np.shape(bboxes)[0]),
-                'bboxes': _int64List_feature(bboxes)
-            }
+                feature = {
+                    'image_name':_bytes_feature(tf.compat.as_bytes(ori_rcd['imgname'])),
+                    'image': _bytes_feature(box_img.tobytes()),
+                    'size': _int64List_feature(cur_img_size),
+                    'class': _int64_feature(label),
+                    'labels': _int64List_feature(np.array([])),
+                    'bbox_num': _int64_feature(0),
+                    'bboxes': _int64List_feature(np.array([]))
+                }
 
-            # Create an example protocol buffer
-            example = tf.train.Example(features=tf.train.Features(feature=feature))
+                # Create an example protocol buffer
+                example = tf.train.Example(features=tf.train.Features(feature=feature))
 
-            # Writing the serialized example.
-            example_str = example.SerializeToString()
-            writer.write(example_str)
+                # Writing the serialized example.
+                example_str = example.SerializeToString()
+                writer.write(example_str)
 
-            print('cnt: %d' % cnt)
-            cnt = cnt + 1
+                print('cnt: %d' % cnt)
+                cnt = cnt + 1
 
-            #write out records each cnt_max items
-            if 0 == cnt % cnt_max:
-                writer.close()
-                tfrecord_filename = os.path.join( dest_path, '%d.tfrecords' % (cnt))
-                writer = tf.python_io.TFRecordWriter(tfrecord_filename)
+                #write out records each cnt_max items
+                if 0 == cnt % cnt_max:
+                    writer.close()
+                    tfrecord_filename = os.path.join( dest_path, '%d.tfrecords' % (cnt))
+                    writer = tf.python_io.TFRecordWriter(tfrecord_filename)
 
             # break
         writer.close()
