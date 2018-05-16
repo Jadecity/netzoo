@@ -4,9 +4,9 @@ Utility tools to manage tfrecord dataset.
 import os.path
 import tensorflow as tf
 import glob
-import common.utils as utils
 
-class DataSet:
+
+class PascalDataSet:
 
     def __init__(self, path, class_num, parser=None, batchsize=1):
         self._dataset = None

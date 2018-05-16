@@ -7,6 +7,16 @@ from collections import namedtuple
 import skimage.transform as trans
 import cv2
 
+def int64List_feature(value):
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=value.flatten()))
+
+def int64_feature(value):
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+
+# _bytes is used for string/char values
+def bytes_feature(value):
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
 def getOptimizer(opt_conf):
     """
     Create an optimizer using config.
@@ -218,6 +228,30 @@ def visulizeClassV2(img, label, label_name_list, hold=False):
     """
     # label = np.argmax(label) + 1
     class_name = label_name_list[label]
+
+    # Show image and its label.
+    if not hold:
+        fig, ax = plt.subplots(1)
+    else:
+        ax = plt.gca()
+
+    ax.clear()
+    ax.imshow(img)
+
+    # Add the patch to the Axes
+    ax.text(10, 10, class_name, color='r', bbox=dict(facecolor='green', alpha=0.5))
+
+    plt.draw()
+
+def visulizeClassByName(img, label_name, hold=False):
+    """
+    Visualize image and its class name.
+    :param img: image.
+    :param label_name: single label name
+    :return: None.
+    """
+    # label = np.argmax(label) + 1
+    class_name = label_name
 
     # Show image and its label.
     if not hold:

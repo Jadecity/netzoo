@@ -1,7 +1,6 @@
-import common.dataset as dt
+import Datasets.PascalDataset as dt
 import tensorflow as tf
 import common.config as script_conf
-import numpy as np
 import matplotlib.pyplot as plt
 import common.utils as utils
 import json

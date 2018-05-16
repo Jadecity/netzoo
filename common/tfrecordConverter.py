@@ -25,7 +25,7 @@ class TfrecordConverter():
     def __init__(self):
         pass
 
-    def encodeAll(self, src_path, data_home, label_file, class_file, dest_path, cnt_max, preprocessor=None):
+    def encodeAllDetection(self, src_path, data_home, label_file, class_file, dest_path, cnt_max, preprocessor=None):
         """
         Read json files in src_path, read corresponding image file,
         and convert them to tfrecord format.
@@ -35,6 +35,8 @@ class TfrecordConverter():
         :param class_file: json file contains image file name and its class name.
         :param dest_path: destination directory where to put tfrecords.
         :param cnt_max: max number of tfrecord in each file.
+        :param preprocessor, will preprocess inputs.
+        :param mode, 'class' if dataset is for classification, 'detection' if for detection
         :return: none.
         """
         with open(label_file, 'r') as label_file:
@@ -105,3 +107,4 @@ class TfrecordConverter():
 
             # break
         writer.close()
+

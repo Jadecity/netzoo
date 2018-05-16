@@ -8,8 +8,8 @@ def loadTrainConf():
     :return: configuration params.
     """
     train_conf = {}
-    train_conf['class_num'] = 20
-    train_conf['batch_size'] = 32
+    train_conf['class_num'] = 10
+    train_conf['batch_size'] = 10
     train_conf['epoch_num'] = 10
 
     train_conf['optimizer'] = 'AdamOptimizer'
@@ -17,9 +17,11 @@ def loadTrainConf():
     train_conf['learning_rate'] = 0.1
     train_conf['weight_decay'] = 0.0005
 
-    train_conf['dataset_path'] = '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/tfrecords'
+    # train_conf['dataset_path'] = '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/tfrecords'
+    train_conf[
+        'dataset_path'] = '/home/autel/data/cifar/cifar-10-batches-py/tfrecords'
 
-    train_conf['input_size'] = 224
+    train_conf['input_size'] = 32
     train_conf['resolution_mult'] = train_conf['input_size'] / 224
     train_conf['is_train'] = True
 

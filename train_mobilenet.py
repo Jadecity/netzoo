@@ -5,16 +5,9 @@ Scripts for training a mobile network.
 """
 
 import tensorflow as tf
-import network.ssdConf as ssdConf
-import common.dataset as dt
-import network.ssdNet as ssdNet
-import network.mobileNet as mobileNet
-import common.utils as utils
+import Datasets.PascalDataset as dt
 import common.config as conf
-import numpy as np
 import json
-import matplotlib.pyplot as plt
-import tensorlayer as tl
 import tensorflow.contrib.slim.nets as nets
 
 def main(_):

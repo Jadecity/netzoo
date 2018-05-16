@@ -1,21 +1,14 @@
 # -*- coding: utf-8 -*-
 
 """
-Scripts for training a mobile network.
+Scripts for training a ResNeXt network.
 """
 
 import tensorflow as tf
-import network.ssdConf as ssdConf
-import common.dataset as dt
-import network.ssdNet as ssdNet
-import network.mobileNet as mobileNet
-import common.utils as utils
+import Datasets.PascalDataset as dt
 import common.config as conf
-import numpy as np
 import json
-import matplotlib.pyplot as plt
-import tensorlayer as tl
-import tensorflow.contrib.slim.nets as nets
+from network.ResNeXt29 import ResNeXt29
 
 def main(_):
     """
@@ -32,16 +25,15 @@ def main(_):
                          batchsize=gconf['batch_size'],
                          class_num=gconf['class_num'])
 
-    img_name_batch, img_batch, sizes_batch, class_id_batch, box_num_batch, labels_batch, bboxes_batch = dataset.getNext()
-    labels_batch = tf.one_hot(class_id_batch, gconf['class_num'] + 1)
-    labels_batch = labels_batch[:, 1:]
+    img_name_batch, img_batch, sizes_batch, class_id_batch = dataset.getNext()
+    labels_batch = tf.one_hot(class_id_batch, gconf['class_num'])
     dataset_itr = dataset._itr
 
     # Predict labels
     # img_batch = tf.cast(input_imgs, tf.float32)
     input_imgs = tf.placeholder(tf.float32, [None, gconf['input_size'], gconf['input_size'], 3])
-    alexnet, _ =  nets.resnet_v2.resnet_v2_50(input_imgs, num_classes=20, is_training =True)
-    logits = alexnet
+    resnet, _ =  ResNeXt29(conf=gconf, input=input_imgs)
+    logits = resnet.outputs
 
     #  Compute loss
     labels = tf.placeholder(tf.float32, [None, gconf['class_num']])
@@ -49,7 +41,8 @@ def main(_):
     loss = tf.losses.get_total_loss()
     tf.summary.scalar('loss', loss)
 
-    optimizer = tf.train.GradientDescentOptimizer(learning_rate=gconf['learning_rate'])
+    learning_rate = tf.placeholder(tf.float32, name='LR')
+    optimizer = tf.train.GradientDescentOptimizer(learning_rate)
     train_op = optimizer.minimize(loss)
 
     correct_prediction = tf.equal(tf.argmax(logits, axis=1), tf.argmax(labels, axis=1))
@@ -58,10 +51,6 @@ def main(_):
 
     summary = tf.summary.merge_all()
     init_op = tf.global_variables_initializer()
-
-
-    with  open('/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/classes.json') as label_name_file:
-        class_dict = json.load(label_name_file)
 
     step_cnt = 0
     with tf.Session() as sess:
@@ -79,17 +68,10 @@ def main(_):
                     imgs_input, labels_input = sess.run([img_batch, labels_batch])
 
 
-                    # lab_pred, lab_batch = sess.run([labels_pred, class_id_batch], feed_dict={input_imgs:imgs_input,
-                    #                                                       labels: labels_input});
-                    # print(lab_pred, lab_batch)
-                    # exit(0)
-                    #
-                    # for img, class_onehot in zip(imgs_input, labels_input):
-                    #     utils.visulizeClass(img, class_onehot, class_dict, hold=True)
-                    #     plt.waitforbuttonpress()
-
-                    summary_val, loss_val, train_acc, _ = sess.run([summary, loss, accuracy, train_op], feed_dict={input_imgs:imgs_input,
-                                                                          labels: labels_input})
+                    summary_val, loss_val, train_acc, _ = sess.run([summary, loss, accuracy, train_op],
+                                                                   feed_dict={input_imgs:imgs_input,
+                                                                              labels: labels_input,
+                                                                              learning_rate:gconf['learning_rate']})
 
                     if step_cnt % gconf['log_step'] == 0:
                         tb_log_writer.add_summary(summary_val, step_cnt)
