@@ -178,6 +178,7 @@ def encode2Tfrecord(src_path, data_home, dest_path, cnt_max, preprocessor=None):
     content = open(os.path.join(src_path, 'img_labels.json')).read()
     ori_rcd = json.loads(content)
 
+    mean_img = np.zeros([32, 32, 3], dtype=np.float32)
     for img_name in ori_rcd.keys():
         img = cv2.imread(path.join(data_home, img_name))
         img_size = [ori_rcd[img_name]['width'],
@@ -186,6 +187,8 @@ def encode2Tfrecord(src_path, data_home, dest_path, cnt_max, preprocessor=None):
         img_size = np.array(img_size)
         label = ori_rcd[img_name]['label']
         label_name = ori_rcd[img_name]['label_name']
+
+        mean_img = np.add(mean_img, img)
 
         # utils.visulizeClassByName(img, ori_rcd[img_name]['label_name'], hold=True)
         # plt.waitforbuttonpress()
@@ -219,6 +222,10 @@ def encode2Tfrecord(src_path, data_home, dest_path, cnt_max, preprocessor=None):
 
         # break
     writer.close()
+
+    # write mean image to file.
+    mean_img /= cnt
+    np.save(path.join(cifar_home, 'mean_img.npy'), mean_img)
 
 
 if __name__ == '__main__':

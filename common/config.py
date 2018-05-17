@@ -21,6 +21,7 @@ def loadTrainConf():
     # train_conf['dataset_path'] = '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/tfrecords'
     train_conf[
         'dataset_path'] = '/home/autel/data/cifar/cifar-10-batches-py/tfrecords'
+    train_conf['mean_img'] = '/home/autel/data/cifar/cifar-10-batches-py/mean_img.npy'
 
     train_conf['input_size'] = 32
     train_conf['resolution_mult'] = train_conf['input_size'] / 224

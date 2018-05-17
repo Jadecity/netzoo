@@ -12,9 +12,10 @@ import numpy as np
 
 class CifarDataSet:
 
-    def __init__(self, path, class_num, parser=None, batchsize=1):
+    def __init__(self, path, class_num, mean_img, parser=None, batchsize=1):
         self._dataset = None
         self._class_num = class_num
+        self._mean_img = np.load(mean_img)
         self.createDataSet(path, batchsize, parser)
 
     def _parse_func(self, example):
@@ -38,6 +39,7 @@ class CifarDataSet:
         image = tf.decode_raw(context_parsed['image'], tf.uint8)
         size = context_parsed['size']
         image = tf.reshape(image, size)
+        image -= self._mean_img
 
         image_name = context_parsed['image_name']
         label_id = context_parsed['label']
@@ -91,7 +93,8 @@ if __name__ == '__main__':
 
     dataset = CifarDataSet(path = trainConf['dataset_path'],
                          batchsize = trainConf['batch_size'],
-                         class_num = trainConf['class_num'])
+                         class_num = trainConf['class_num'],
+                           mean_img=trainConf['mean_img'])
 
     # img_batch, size_batch, \
     img_name_batch, img_batch, sizes_batch, class_id_batch, label_name_batch = dataset.getNext()

@@ -25,7 +25,8 @@ def main(_):
     # Prepaire data
     dataset = CifarDataSet(path=gconf['dataset_path'],
                          batchsize=gconf['batch_size'],
-                         class_num=gconf['class_num'])
+                         class_num=gconf['class_num'],
+                         mean_file = gconf['mean_img'])
 
     img_name_batch, img_batch, size_batch, class_id_batch, label_name_batch = dataset.getNext()
     labels_onehot = tf.one_hot(class_id_batch, gconf['class_num'])
