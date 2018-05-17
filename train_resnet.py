@@ -5,10 +5,12 @@ Scripts for training a ResNeXt network.
 """
 
 import tensorflow as tf
-import Datasets.PascalDataset as dt
 import common.config as conf
 import json
 from network.ResNeXt29 import ResNeXt29
+import common.utils as utils
+from Datasets.CifarDataset import CifarDataSet
+import matplotlib.pyplot as plt
 
 def main(_):
     """
@@ -21,19 +23,19 @@ def main(_):
     # mobilenet = mobileNet.MobileNet(gconf)
 
     # Prepaire data
-    dataset = dt.DataSet(path=gconf['dataset_path'],
+    dataset = CifarDataSet(path=gconf['dataset_path'],
                          batchsize=gconf['batch_size'],
                          class_num=gconf['class_num'])
 
-    img_name_batch, img_batch, sizes_batch, class_id_batch = dataset.getNext()
-    labels_batch = tf.one_hot(class_id_batch, gconf['class_num'])
+    img_name_batch, img_batch, size_batch, class_id_batch, label_name_batch = dataset.getNext()
+    labels_onehot = tf.one_hot(class_id_batch, gconf['class_num'])
     dataset_itr = dataset._itr
 
     # Predict labels
     # img_batch = tf.cast(input_imgs, tf.float32)
     input_imgs = tf.placeholder(tf.float32, [None, gconf['input_size'], gconf['input_size'], 3])
-    resnet, _ =  ResNeXt29(conf=gconf, input=input_imgs)
-    logits = resnet.outputs
+    resnet =  ResNeXt29(conf=gconf, input=input_imgs)
+    logits = resnet.get_output()
 
     #  Compute loss
     labels = tf.placeholder(tf.float32, [None, gconf['class_num']])
@@ -41,10 +43,12 @@ def main(_):
     loss = tf.losses.get_total_loss()
     tf.summary.scalar('loss', loss)
 
+    # create train op
     learning_rate = tf.placeholder(tf.float32, name='LR')
-    optimizer = tf.train.GradientDescentOptimizer(learning_rate)
+    optimizer = tf.train.MomentumOptimizer(learning_rate, gconf['momentum'])
     train_op = optimizer.minimize(loss)
 
+    # create train accuracy
     correct_prediction = tf.equal(tf.argmax(logits, axis=1), tf.argmax(labels, axis=1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
     tf.summary.scalar('train_acc', accuracy)
@@ -58,27 +62,39 @@ def main(_):
 
         sess.run(init_op)
 
-        for _ in range(gconf['epoch_num']):
+        lr = gconf['learning_rate']
+        for epoch in range(gconf['epoch_num']):
             sess.run(dataset_itr.initializer)
+
+            if epoch == 150:
+                lr = gconf['learning_rate'] / 10.0
+
+            if epoch == 225:
+                lr = gconf['learning_rate'] / 100.0
 
             while True:
                 step_cnt = step_cnt + 1
                 try:
                     # train
-                    imgs_input, labels_input = sess.run([img_batch, labels_batch])
+                    imgs_input, labels_input, label_name_input = sess.run([img_batch, labels_onehot, label_name_batch])
 
 
+                    # for i in range(gconf['batch_size']):
+                    #     # vis imgs and labels
+                    #     utils.visulizeClassByName(imgs_input[i], label_name_input[i], hold=True)
+                    #     plt.waitforbuttonpress()
+
+                    
                     summary_val, loss_val, train_acc, _ = sess.run([summary, loss, accuracy, train_op],
                                                                    feed_dict={input_imgs:imgs_input,
                                                                               labels: labels_input,
-                                                                              learning_rate:gconf['learning_rate']})
+                                                                              learning_rate:lr})
 
                     if step_cnt % gconf['log_step'] == 0:
                         tb_log_writer.add_summary(summary_val, step_cnt)
                         print('Step %d, loss: %f, train_acc: %f'%(step_cnt, loss_val, train_acc))
+
                 except tf.errors.OutOfRangeError:
-                    # log statistics
-                    # break
                     break
 
 if __name__ == '__main__':

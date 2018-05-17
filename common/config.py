@@ -9,13 +9,14 @@ def loadTrainConf():
     """
     train_conf = {}
     train_conf['class_num'] = 10
-    train_conf['batch_size'] = 10
-    train_conf['epoch_num'] = 10
+    train_conf['batch_size'] = 32
+    train_conf['epoch_num'] = 300
 
     train_conf['optimizer'] = 'AdamOptimizer'
     train_conf['epsilon'] = 1e-8
     train_conf['learning_rate'] = 0.1
     train_conf['weight_decay'] = 0.0005
+    train_conf['momentum'] = 0.9
 
     # train_conf['dataset_path'] = '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/tfrecords'
     train_conf[
@@ -27,6 +28,9 @@ def loadTrainConf():
 
     # conf for mobile net
     train_conf['width_mult'] = 1
+
+    # conf for resNeXt29
+    train_conf['card'] = 16
 
     # Tensor board log config
     train_conf['log_step'] = 10 # 10 batch log once
