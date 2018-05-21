@@ -6,6 +6,8 @@ import matplotlib.patches as patches
 from collections import namedtuple
 import skimage.transform as trans
 import cv2
+import glob
+from os import path
 
 def int64List_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=value.flatten()))
@@ -357,3 +359,23 @@ def createResizePreprocessor(gconf):
     """
     return ResizePreprocessor(gconf)
 
+def findLastCkpt(model_path):
+    """
+    Find last saved model in model path.
+    :param model_path: Path to saved model
+    :return: last ckpt file prefix and corresponding epoch number.
+    """
+
+    ckpt_prefix, epoch_num = '', 0
+    ckpt_files = glob.glob(path.join(model_path, '*.ckpt.meta'))
+    ckpt_files.sort()
+    if len(ckpt_files) > 0:
+        last = ckpt_files[-1]
+        ckpt_prefix = last[last.rfind('/')+1:-5]
+        epoch_num = int(ckpt_prefix[-8:-5]) + 1
+
+    return ckpt_prefix, epoch_num
+
+if __name__ == '__main__':
+    ckpt_pref, epoch_num = findLastCkpt('../models')
+    print(ckpt_pref, epoch_num)

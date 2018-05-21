@@ -11,7 +11,9 @@ from network.ResNeXt29 import ResNeXt29
 import common.utils as utils
 from Datasets.CifarDataset import CifarDataSet
 import matplotlib.pyplot as plt
+from os import path
 
+home = path.dirname(path.realpath(__file__))
 def main(_):
     """
     Main script for training.
@@ -26,7 +28,7 @@ def main(_):
     dataset = CifarDataSet(path=gconf['dataset_path'],
                          batchsize=gconf['batch_size'],
                          class_num=gconf['class_num'],
-                         mean_file = gconf['mean_img'])
+                         mean_img = gconf['mean_img'])
 
     img_name_batch, img_batch, size_batch, class_id_batch, label_name_batch = dataset.getNext()
     labels_onehot = tf.one_hot(class_id_batch, gconf['class_num'])
@@ -56,6 +58,7 @@ def main(_):
 
     summary = tf.summary.merge_all()
     init_op = tf.global_variables_initializer()
+    model_saver = tf.train.Saver()
 
     step_cnt = 0
     with tf.Session() as sess:
@@ -63,8 +66,13 @@ def main(_):
 
         sess.run(init_op)
 
+        # Find last checkpoint
+        ckpt_name, epoch_start = utils.findLastCkpt(path.join(home,'models'))
+        if ckpt_name != '':
+            model_saver.restore(sess, path.join(home, 'models', ckpt_name))
+
         lr = gconf['learning_rate']
-        for epoch in range(gconf['epoch_num']):
+        for epoch in range(epoch_start, gconf['epoch_num']):
             sess.run(dataset_itr.initializer)
 
             if epoch == 150:
@@ -97,6 +105,9 @@ def main(_):
 
                 except tf.errors.OutOfRangeError:
                     break
+
+            if epoch % 10 == 0:
+                model_saver.save(sess, 'models/model_%03d.ckpt' % epoch)
 
 if __name__ == '__main__':
     tf.app.run()
