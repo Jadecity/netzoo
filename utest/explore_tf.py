@@ -73,9 +73,8 @@ if __name__ == '__main__':
     # fx = utils.smoothL1(x)
 
     # a = tf.constant([[1,1,3,3], [5,2,3,3]])
-    # b = tf.constant([2,2,3,3])
-    #
-    # ss = tf.InteractiveSession()
+    b = tf.constant([200,300,400,500])
+    ss = tf.InteractiveSession()
     # # rst = ss.run(tf.logical_not( tf.greater(b, 2)))
     # # print(rst)
     # #
@@ -86,8 +85,8 @@ if __name__ == '__main__':
     # # rst = ss.run(tf.gather_nd(b, tf.where(tf.greater(b, 2))))
     # # print(rst)
     # #
-    # # rst = ss.run(tf.nn.top_k(b, 2))
-    # # print(rst[0])
+    rst,idx = ss.run(tf.nn.top_k(b, 2))
+    print(rst, idx)
     #
     # count = tf.greater(b, 2)
     # count = tf.reduce_sum(tf.cast(count, dtype=tf.int8))
@@ -194,14 +193,16 @@ if __name__ == '__main__':
     # a = [3]
     # b = tf.constant([4,4])
     # c = tf.concat([b, a], axis=0)
-    c = tf.constant([[1,2,3], [4,5,3]])
-    d = tf.argmax(c, 1)
 
-    with tf.Session() as ss:
-        print(ss.run(d))
+    # c = tf.constant([[1,2,3], [4,5,3]], dtype=tf.float32)
+    # d = tf.argmax(c, 1)
+    # e = tf.nn.softmax(c)
+    #
+    # with tf.Session() as ss:
+    #     print(ss.run(e))
 
-    a = [1,2,3]
-    print(np.argmax(a))
+    # a = [1,2,3]
+    # print(np.argmax(a))
 
     # a = [1,2,3]
     # b = np.array(a)
@@ -209,4 +210,7 @@ if __name__ == '__main__':
     # print(c)
     #
     # print(np.array([0]).flatten())
+    # a = np.array([0])
+    # for b in a:
+    #     print(b)
     pass

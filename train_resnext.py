@@ -6,12 +6,11 @@ Scripts for training a ResNeXt network.
 
 import tensorflow as tf
 import common.config as conf
-import json
 from network.ResNeXt29 import ResNeXt29
 import common.utils as utils
 from Datasets.CifarDataset import CifarDataSet
-import matplotlib.pyplot as plt
 from os import path
+from tensorflow.python.framework import ops
 
 home = path.dirname(path.realpath(__file__))
 def main(_):
@@ -37,12 +36,18 @@ def main(_):
     # Predict labels
     # img_batch = tf.cast(input_imgs, tf.float32)
     input_imgs = tf.placeholder(tf.float32, [None, gconf['input_size'], gconf['input_size'], 3])
-    resnet =  ResNeXt29(conf=gconf, input=input_imgs)
-    logits = resnet.get_output()
+    resnext =  ResNeXt29(conf=gconf, input=input_imgs)
+    logits = resnext.get_output()
 
     #  Compute loss
     labels = tf.placeholder(tf.float32, [None, gconf['class_num']])
     tf.losses.softmax_cross_entropy(onehot_labels=labels, logits=logits)
+
+    vars_train = tf.trainable_variables(scope='ResNeXt29')
+    print('----vars to train: %d' % len(vars_train))
+    weight_loss = gconf['weight_decay'] * tf.add_n([tf.nn.l2_loss(v) for v in vars_train if 'bias' not in v.name])
+    tf.losses.add_loss(weight_loss, loss_collection=ops.GraphKeys.REGULARIZATION_LOSSES)
+
     loss = tf.losses.get_total_loss()
     tf.summary.scalar('loss', loss)
 
