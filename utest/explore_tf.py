@@ -73,8 +73,24 @@ if __name__ == '__main__':
     # fx = utils.smoothL1(x)
 
     # a = tf.constant([[1,1,3,3], [5,2,3,3]])
+
+    def lr_schedule(base_lr, global_step):
+        lr = base_lr
+        lr = tf.where(global_step > 150, base_lr / 10, base_lr)
+        lr = tf.where(global_step > 225, lr / 10, lr)
+
+        return lr
+
+
     b = tf.constant([200,300,400,500])
+    tf.train.create_global_step()
+    step = tf.train.get_or_create_global_step()
+    learning_rate = tf.placeholder(tf.float32, name='LR')
+    lr = lr_schedule(learning_rate, step)
+
+    init = tf.global_variables_initializer()
     ss = tf.InteractiveSession()
+    ss.run(init)
     # # rst = ss.run(tf.logical_not( tf.greater(b, 2)))
     # # print(rst)
     # #
@@ -85,8 +101,8 @@ if __name__ == '__main__':
     # # rst = ss.run(tf.gather_nd(b, tf.where(tf.greater(b, 2))))
     # # print(rst)
     # #
-    rst,idx = ss.run(tf.nn.top_k(b, 2))
-    print(rst, idx)
+    step_val = ss.run([lr], feed_dict={learning_rate: 100})
+    print(step_val)
     #
     # count = tf.greater(b, 2)
     # count = tf.reduce_sum(tf.cast(count, dtype=tf.int8))

@@ -28,7 +28,14 @@ help_dict = {
 
     'train_batch_size': 'batch size for training',
     'epoch_num': 'epoch number',
-    'gpu_num': 'number of gpu'
+    'gpu_num': 'number of gpu',
+    'exam_per_epoch': 'examples per epoch',
+
+    # multi-machine training support
+    'ps_hosts': 'parameter hosts, seperated by comma',
+    'worker_hosts': 'worker hosts, seperated by comma',
+    'job_name': 'ps or worker',
+    'task_index': 'task index starting from zero'
 }
 
 
@@ -46,6 +53,7 @@ Param = namedtuple('ParamStruct', [
 
     'train_batch_size',
     'epoch_num',
+    'exam_per_epoch',
 
     'class_num',
     'learning_rate',
@@ -55,7 +63,12 @@ Param = namedtuple('ParamStruct', [
     'card',
 
     'is_train',
-    'gpu_num'
+    'gpu_num',
+
+    'ps_hosts',
+    'worker_hosts',
+    'job_name',
+    'task_index'
 ])
 
 
@@ -70,6 +83,12 @@ def inputParam():
     flags.DEFINE_integer(*arg_def('train_batch_size', 32))
     flags.DEFINE_integer(*arg_def('epoch_num', 300))
     flags.DEFINE_integer(*arg_def('gpu_num', 1))
+    flags.DEFINE_integer(*arg_def('exam_per_epoch', 50000))
+
+    flags.DEFINE_string(*arg_def('ps_hosts', ''))
+    flags.DEFINE_string(*arg_def('worker_hosts', ''))
+    flags.DEFINE_string(*arg_def('job_name', ''))
+    flags.DEFINE_integer(*arg_def('task_index', 0))
 
     return flags.FLAGS
 
@@ -84,6 +103,17 @@ def checkInputParam(FLAGS):
     if FLAGS.mean_img is None:
         raise RuntimeError('You must specify --mean_img for training.')
 
+    if FLAGS.ps_hosts is None:
+        raise RuntimeError('You must specify --ps_hosts for training.')
+
+    if FLAGS.worker_hosts is None:
+        raise RuntimeError('You must specify --worker_hosts for training.')
+
+    if FLAGS.job_name is None:
+        raise RuntimeError('You must specify --job_name for training.')
+
+    if FLAGS.task_index is None:
+        raise RuntimeError('You must specify --task_index for training.')
 
 def initParam(input_flag):
     params = Param(
@@ -96,6 +126,7 @@ def initParam(input_flag):
 
         train_batch_size=input_flag.train_batch_size,
         epoch_num=input_flag.epoch_num,
+        exam_per_epoch=input_flag.exam_per_epoch,
 
         class_num=10,
         learning_rate=0.1,
@@ -104,7 +135,12 @@ def initParam(input_flag):
         input_size=32,
         card=8,
         is_train=(input_flag.mode == 'train'),
-        gpu_num=input_flag.gpu_num
+        gpu_num=input_flag.gpu_num,
+
+        ps_hosts=input_flag.ps_hosts,
+        worker_hosts=input_flag.worker_hosts,
+        job_name=input_flag.job_name,
+        task_index=input_flag.task_index
     )
 
     return params
@@ -112,6 +148,12 @@ def initParam(input_flag):
 
 FLAGS = inputParam()
 
+def lr_schedule(base_lr, global_step):
+    lr = base_lr
+    lr = tf.where(global_step > 150, base_lr/10, base_lr)
+    lr = tf.where(global_step > 225, lr / 10, lr)
+
+    return lr
 
 def main(_):
     """
@@ -121,98 +163,81 @@ def main(_):
 
     gconf = initParam(FLAGS)
 
-    # Prepaire data
-    dataset = CifarDataSet(path=gconf.dataset_path,
-                         batchsize=gconf.train_batch_size,
-                         class_num=gconf.class_num,
-                         mean_img = gconf.mean_img)
+    # parse ps hosts and worker hosts
+    ps_hosts = gconf.ps_hosts.split(',')
+    wk_hosts = gconf.worker_hosts.split(',')
 
-    img_name_batch, img_batch, size_batch, class_id_batch, label_name_batch = dataset.getNext()
-    labels_onehot = tf.one_hot(class_id_batch, gconf.class_num)
-    dataset_itr = dataset._itr
+    # create cluster specific
+    clusterSpec = tf.train.ClusterSpec({
+        'ps': ps_hosts,
+        'worker': wk_hosts
+    })
 
-    # Predict labels
-    input_imgs = tf.placeholder(tf.float32, [None, gconf.input_size, gconf.input_size, 3])
-    resnext =  ResNeXt29(conf=gconf, input=input_imgs)
-    logits = resnext.get_output()
+    # create server
+    server = tf.train.Server(clusterSpec, job_name=gconf.job_name, task_index=gconf.task_index)
 
-    #  Compute loss
-    labels = tf.placeholder(tf.float32, [None, gconf.class_num])
-    tf.losses.softmax_cross_entropy(onehot_labels=labels, logits=logits)
+    if gconf.job_name == 'ps':
+        # parameter server start and block
+        server.join()
+    elif gconf.job_name == 'worker':
+        # the machine execute task_0 is regarded as chief node.
+        is_chief = gconf.task_index == 0
 
-    vars_train = tf.trainable_variables(scope='ResNeXt29')
-    weight_loss = gconf.weight_decay * tf.add_n([tf.nn.l2_loss(v) for v in vars_train if 'bias' not in v.name])
-    tf.losses.add_loss(weight_loss, loss_collection=ops.GraphKeys.REGULARIZATION_LOSSES)
+        # worker server do regular training
+        with tf.device(tf.train.replica_device_setter(worker_device='/job:worker/task:%d' % gconf.task_index,
+                                                      cluster=clusterSpec)):
 
-    loss = tf.losses.get_total_loss()
-    tf.summary.scalar('loss', loss)
+            # Prepaire data
+            dataset = CifarDataSet(path=gconf.dataset_path,
+                                   batchsize=gconf.train_batch_size,
+                                   class_num=gconf.class_num,
+                                   mean_img=gconf.mean_img)
 
-    # create train op
-    learning_rate = tf.placeholder(tf.float32, name='LR')
-    optimizer = tf.train.MomentumOptimizer(learning_rate, gconf.momentum)
-    train_op = optimizer.minimize(loss)
+            img_name_batch, img_batch, size_batch, class_id_batch, label_name_batch = dataset.getNext()
+            labels_onehot = tf.one_hot(class_id_batch, gconf.class_num)
 
-    # create train accuracy
-    correct_prediction = tf.equal(tf.argmax(logits, axis=1), tf.argmax(labels, axis=1))
-    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-    tf.summary.scalar('train_acc', accuracy)
+            # Predict labels
+            resnext =  ResNeXt29(conf=gconf, input=img_batch)
+            logits = resnext.get_output()
 
-    summary = tf.summary.merge_all()
-    init_op = tf.global_variables_initializer()
-    model_saver = tf.train.Saver()
+            #  Compute loss
+            tf.losses.softmax_cross_entropy(onehot_labels=labels_onehot, logits=logits)
 
-    step_cnt = 0
-    with tf.Session() as sess:
-        tb_log_writer = tf.summary.FileWriter(gconf.log_dir, sess.graph)
+            vars_train = tf.trainable_variables(scope='ResNeXt29')
+            weight_loss = gconf.weight_decay * tf.add_n([tf.nn.l2_loss(v) for v in vars_train if 'bias' not in v.name])
+            tf.losses.add_loss(weight_loss, loss_collection=ops.GraphKeys.REGULARIZATION_LOSSES)
 
-        sess.run(init_op)
+            loss = tf.losses.get_total_loss()
+            tf.summary.scalar('loss', loss)
 
-        # Find last checkpoint
-        ckpt_name, epoch_start = utils.findLastCkpt(path.join(home,'models'))
-        if ckpt_name != '':
-            model_saver.restore(sess, path.join(home, 'models', ckpt_name))
+            # create train op
+            learning_rate = tf.placeholder(tf.float32, name='LR')
+            global_step = tf.train.get_or_create_global_step()
+            lr = lr_schedule(learning_rate, global_step)
 
-        total_duration = 0
-        lr = gconf.learning_rate
-        for epoch in range(epoch_start, gconf.epoch_num):
-            sess.run(dataset_itr.initializer)
+            optimizer = tf.train.MomentumOptimizer(learning_rate, gconf.momentum)
+            train_op = optimizer.minimize(loss, global_step=global_step)
 
-            if epoch == 150:
-                lr = gconf.learning_rate / 10.0
+            # create train accuracy
+            correct_prediction = tf.equal(tf.argmax(logits, axis=1), tf.argmax(labels_onehot, axis=1))
+            accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+            tf.summary.scalar('train_acc', accuracy)
 
-            if epoch == 225:
-                lr = gconf.learning_rate / 100.0
+        summary = tf.summary.merge_all()
 
-            while True:
-                start_time = time.time()
-                step_cnt = step_cnt + 1
-                try:
-                    # train
-                    imgs_input, labels_input, label_name_input = sess.run([img_batch, labels_onehot, label_name_batch])
+        # create stop conditon hooks
+        hooks = [tf.train.StopAtStepHook(gconf.epoch_num * gconf.exam_per_epoch)]
 
-
-                    # for i in range(gconf.batch_size):
-                    #     # vis imgs and labels
-                    #     utils.visulizeClassByName(imgs_input[i], label_name_input[i], hold=True)
-                    #     plt.waitforbuttonpress()
-
-                    summary_val, loss_val, train_acc, _ = sess.run([summary, loss, accuracy, train_op],
-                                                                   feed_dict={input_imgs:imgs_input,
-                                                                              labels: labels_input,
-                                                                              learning_rate:lr})
-
-                    if step_cnt % gconf.log_step == 0:
-                        duration = time.time() - start_time
-                        total_duration += duration
-                        tb_log_writer.add_summary(summary_val, step_cnt)
-                        print('time: %s, Epoch : %d, Step %d, loss: %f, train_acc: %f, duration: %.3fs, total_duration: %.3fs'
-                              % (datetime.datetime.now(), epoch, step_cnt, loss_val, train_acc, duration, total_duration))
-
-                except tf.errors.OutOfRangeError:
-                    break
-
-            if epoch % 10 == 0:
-                model_saver.save(sess, 'models/model_%03d.ckpt' % epoch)
+        with tf.train.MonitoredTrainingSession(master=server.target,
+                                               is_chief=is_chief,
+                                               checkpoint_dir=gconf.log_dir,
+                                               hooks=hooks,
+                                               log_step_count_steps=1) as mon_sess:
+                if is_chief:
+                    mon_sess.run(dataset._itr.initializer)
+                while not mon_sess.should_stop():
+                        # train
+                        mon_sess.run([train_op], feed_dict={learning_rate:gconf.learning_rate})
 
 if __name__ == '__main__':
     tf.app.run()
