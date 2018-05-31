@@ -27,7 +27,8 @@ help_dict = {
     'log_dir': 'log directory',
 
     'train_batch_size': 'batch size for training',
-    'epoch_num': 'epoch number'
+    'epoch_num': 'epoch number',
+    'gpu_num': 'number of gpu device'
 }
 
 
@@ -135,6 +136,7 @@ def main(_):
 
         # multi-GPU support
         tower_grads = []
+        accuracys = []
         for i in range(gconf.gpu_num):
             with tf.device('/gpu:%d' % i):
                 with tf.name_scope('gputower_%d' % i) as scope:
@@ -156,7 +158,11 @@ def main(_):
                     losses = tf.get_collection('losses', scope=scope)
                     loss = tf.add_n(losses, name='total_loss')
 
-                    tf.get_variable_scope().reuse_variables()
+                    # create train accuracy
+                    correct_prediction = tf.equal(tf.argmax(logits, axis=1), tf.argmax(labels_onehot, axis=1))
+                    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+                    accuracys.append(accuracy)
+
                     grads = optimizer.compute_gradients(loss)
                     tower_grads.append(grads)
 
@@ -168,6 +174,10 @@ def main(_):
 
         total_loss = tf.losses.get_total_loss()
         tf.summary.scalar('loss', total_loss)
+
+        # compute mean accuracy
+        mean_acc = tf.reduce_mean(tf.add_n(accuracys))
+        tf.summary.scalar('train_acc', mean_acc)
 
         summary = tf.summary.merge_all()
         init_op = tf.global_variables_initializer()
@@ -204,15 +214,15 @@ def main(_):
                         #     utils.visulizeClassByName(imgs_input[i], label_name_input[i], hold=True)
                         #     plt.waitforbuttonpress()
 
-                        summary_val, loss_val, train_acc, _ = sess.run([summary, total_loss, apply_grad_op],
+                        summary_val, loss_val, mean_acc_val, _ = sess.run([summary, total_loss, mean_acc, apply_grad_op],
                                                                        feed_dict={learning_rate: lr})
 
                         if step_cnt % gconf.log_step == 0:
                             duration = time.time() - start_time
                             total_duration += duration
                             tb_log_writer.add_summary(summary_val, step_cnt)
-                            print('time: %s, Step %d, loss: %f, train_acc: %f, duration: %.3fs, total_duration: %.3fs' \
-                                  % (datetime.datetime.now(), step_cnt, loss_val, train_acc, duration, total_duration))
+                            print('time: %s, Step %d, loss: %f, train_acc: %.4f, duration: %.3fs, total_duration: %.3fs' \
+                                  % (datetime.datetime.now(), step_cnt, loss_val, mean_acc_val, duration, total_duration))
 
                     except tf.errors.OutOfRangeError:
                         break
