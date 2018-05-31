@@ -9,15 +9,19 @@ import cv2
 import glob
 from os import path
 
+
 def int64List_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=value.flatten()))
+
 
 def int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
+
 # _bytes is used for string/char values
 def bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
 
 def getOptimizer(opt_conf):
     """
@@ -33,6 +37,7 @@ def getOptimizer(opt_conf):
 
     return optimizer
 
+
 def makeOneHot(labels, class_num):
     """
     Tranform labels to one hot labels according to class number.
@@ -42,6 +47,7 @@ def makeOneHot(labels, class_num):
     """
     transformed = tf.one_hot(labels, depth=class_num, dtype=tf.int32)
     return transformed
+
 
 def jaccardIndex(gbbox, bboxes):
     """
@@ -80,6 +86,7 @@ def jaccardIndex(gbbox, bboxes):
 
     return tf.divide(intersect_area, union_area)
 
+
 def smoothL1(x):
     """
     Compute l1 smooth for each element in tensor x.
@@ -87,9 +94,10 @@ def smoothL1(x):
     :return: l1 smooth of x.
     """
     fx = tf.where(tf.less(tf.abs(x), 1.0),
-                 tf.multiply(tf.square(x), 0.5),
-                 tf.subtract(tf.abs(x), 0.5))
+                  tf.multiply(tf.square(x), 0.5),
+                  tf.subtract(tf.abs(x), 0.5))
     return fx
+
 
 def positiveMask(overlap):
     """
@@ -99,6 +107,7 @@ def positiveMask(overlap):
     """
 
     return tf.greater(overlap, 0.5)
+
 
 def visualizeAnchors(anchors, gconf, gbboxes):
     ftmap_conf = gconf['featuremaps']
@@ -122,8 +131,8 @@ def visualizeAnchors(anchors, gconf, gbboxes):
                     cy *= np.int32(shape[1])
                     w *= np.int32(shape[0])
                     h *= np.int32(shape[1])
-                    cx = max(0, cx - w/2)
-                    cy = max(0, cy - h/2)
+                    cx = max(0, cx - w / 2)
+                    cy = max(0, cy - h / 2)
 
                     # Create a Rectangle patch
                     rect = patches.Rectangle((cx, cy), w, h, linewidth=1, edgecolor='r', facecolor='none')
@@ -151,6 +160,7 @@ def visualizeAnchors(anchors, gconf, gbboxes):
 
         plt.close('all')
 
+
 def visualizeOverlap(anchors, gconf, gbboxes):
     ftmap_conf = gconf['featuremaps']
     layer_num = len(anchors)
@@ -171,8 +181,9 @@ def visualizeOverlap(anchors, gconf, gbboxes):
         # print overlap
         print(overlap)
 
-        plt.imshow(np.zeros([10,10]))
+        plt.imshow(np.zeros([10, 10]))
         plt.waitforbuttonpress()
+
 
 def visulizeBBox(img, bboxes, hold=False):
     if not hold:
@@ -184,12 +195,14 @@ def visulizeBBox(img, bboxes, hold=False):
     ax.imshow(img)
     for box in bboxes:
         # Create a Rectangle patch
-        rect = patches.Rectangle((box[0], box[1]), box[2] - box[0], box[3] - box[1], linewidth=1, edgecolor='r', facecolor='none')
+        rect = patches.Rectangle((box[0], box[1]), box[2] - box[0], box[3] - box[1], linewidth=1, edgecolor='r',
+                                 facecolor='none')
 
         # Add the patch to the Axes
         ax.add_patch(rect)
 
     plt.draw()
+
 
 def visulizeClass(img, label, label_dict, hold=False):
     """
@@ -220,6 +233,7 @@ def visulizeClass(img, label, label_dict, hold=False):
 
     plt.draw()
 
+
 def visulizeClassV2(img, label, label_name_list, hold=False):
     """
     Visualize image and its class name.
@@ -245,6 +259,7 @@ def visulizeClassV2(img, label, label_name_list, hold=False):
 
     plt.draw()
 
+
 def visulizeClassByName(img, label_name, hold=False):
     """
     Visualize image and its class name.
@@ -269,6 +284,7 @@ def visulizeClassByName(img, label_name, hold=False):
 
     plt.draw()
 
+
 class ResizePreprocessor:
     def __init__(self, conf):
         """
@@ -290,7 +306,7 @@ class ResizePreprocessor:
         """
         w, h = size[0], size[1]
         wd, hd = self._dest_size[0], self._dest_size[1]
-        ratio = np.float(w)/np.float(h)
+        ratio = np.float(w) / np.float(h)
         if ratio > 1:
             hm = hd
             wm = np.int(hm * ratio)
@@ -311,13 +327,13 @@ class ResizePreprocessor:
 
         # Crop center area
         cx, cy = wm / 2, hm / 2
-        x, y = np.int(cx - wd/2), np.int(cy - hd/2)
+        x, y = np.int(cx - wd / 2), np.int(cy - hd / 2)
         min_x = np.min(bboxes[:, 0])
         min_y = np.min(bboxes[:, 1])
         max_x = np.max(bboxes[:, 2])
         max_y = np.max(bboxes[:, 3])
         min_x, min_y = min(min_x, x), min(min_y, y)
-        max_x, max_y = max(max_x, x+wd-1), max(max_y, y+hd-1)
+        max_x, max_y = max(max_x, x + wd - 1), max(max_y, y + hd - 1)
 
         img_d = img_d[min_y:max_y + 1, min_x:max_x + 1, :]
         bboxes[:, 0] -= min_x
@@ -351,6 +367,7 @@ class ResizePreprocessor:
 
         return img_d, bboxes
 
+
 def createResizePreprocessor(gconf):
     """
     Create a dataset preprocessor according to gconf.
@@ -358,6 +375,7 @@ def createResizePreprocessor(gconf):
     :return: a callable object.
     """
     return ResizePreprocessor(gconf)
+
 
 def findLastCkpt(model_path):
     """
@@ -371,10 +389,30 @@ def findLastCkpt(model_path):
     ckpt_files.sort()
     if len(ckpt_files) > 0:
         last = ckpt_files[-1]
-        ckpt_prefix = last[last.rfind('/')+1:-5]
+        ckpt_prefix = last[last.rfind('/') + 1:-5]
         epoch_num = int(ckpt_prefix[-8:-5]) + 1
 
     return ckpt_prefix, epoch_num
+
+
+def avg_grads(tower_grads):
+    grad_avg = []
+    for grad_and_vars in zip(*tower_grads):
+        grads = []
+        for g, _ in grad_and_vars:
+            expanded_g = tf.expand_dims(g, 0)
+            grads.append(expanded_g)
+
+        # compute average
+        grad = tf.concat(axis=0, values=grads)
+        grad = tf.reduce_mean(grad, 0)
+
+        v = grad_and_vars[0][1]
+        grad_and_var = (grad, v)
+        grad_avg.append(grad_and_var)
+
+    return grad_avg
+
 
 if __name__ == '__main__':
     ckpt_pref, epoch_num = findLastCkpt('../models')

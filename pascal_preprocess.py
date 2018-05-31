@@ -8,6 +8,7 @@ import json
 import os
 import math
 
+
 def annotation2json(ann_path, dest_json_path):
     """
     Convert all annotations in ann_path to standard json file in dest_json_path.
@@ -34,8 +35,8 @@ def annotation2json(ann_path, dest_json_path):
         json_obj['imgname'] = root.find('filename').text
 
         size = root.find('size')
-        json_obj['imgsize'] = {'width':   int(size.find('width').text),
-                               'height':  int(size.find('height').text),
+        json_obj['imgsize'] = {'width': int(size.find('width').text),
+                               'height': int(size.find('height').text),
                                'channel': int(size.find('depth').text)
                                }
 
@@ -44,7 +45,7 @@ def annotation2json(ann_path, dest_json_path):
         for obj in objects:
             bndbox = obj.find('bndbox')
             bboxes.append({
-                'label':obj.find('name').text,
+                'label': obj.find('name').text,
                 'x1': int(math.floor(float(bndbox.find('xmin').text))),
                 'y1': int(math.floor(float(bndbox.find('ymin').text))),
                 'x2': int(math.floor(float(bndbox.find('xmax').text))),
@@ -62,9 +63,11 @@ def annotation2json(ann_path, dest_json_path):
     for i, key in enumerate(keys):
         class_list[key] = i + 1
 
-    class_label = open('/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/classes.json', 'w')
+    class_label = open('/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/classes.json',
+                       'w')
     json.dump(class_list, class_label)
     class_label.close()
+
 
 def filename2label(label_file, txt_path, dest_path):
     """
@@ -90,7 +93,6 @@ def filename2label(label_file, txt_path, dest_path):
     out_json = open(out_json, mode='w')
     json.dump(filename_label, out_json)
     out_json.close()
-
 
 
 if __name__ == '__main__':

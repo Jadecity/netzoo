@@ -11,6 +11,7 @@ import network.mobileNet as mobileNet
 import common.utils as utils
 import common.config as script_conf
 
+
 def main(_):
     """
     Main script for training.
@@ -54,6 +55,7 @@ def main(_):
     #
     # # Save trained parameter to file.
     # tl.files.save_npz(ssd_net.all_params, name='model.npz')
+
 
 if __name__ == '__main__':
     tf.app.run()

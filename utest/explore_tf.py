@@ -6,6 +6,8 @@ import matplotlib.pyplot as pl
 
 import numpy as np
 
+import cifar10
+
 
 if __name__ == '__main__':
     # a = tf.placeholder(tf.int8, [2, 3])
@@ -214,3 +216,4 @@ if __name__ == '__main__':
     # for b in a:
     #     print(b)
     pass
+

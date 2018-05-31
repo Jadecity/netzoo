@@ -39,6 +39,7 @@ class CifarDataSet:
         image = tf.decode_raw(context_parsed['image'], tf.uint8)
         size = context_parsed['size']
         image = tf.reshape(image, size)
+        image = tf.cast(image, dtype=tf.float32)
         image -= self._mean_img
 
         image_name = context_parsed['image_name']
@@ -67,8 +68,9 @@ class CifarDataSet:
 
         dataset = tf.data.TFRecordDataset(rcd_files)
         dataset = dataset.map(map_func=parser)
-        padding_shape = ([], [None, None, None], [None], [], [])
-        dataset = dataset.padded_batch(batchsize, padded_shapes=padding_shape)
+        # padding_shape = ([], [None, None, None], [None], [], [])
+        # dataset = dataset.padded_batch(batchsize, padded_shapes=padding_shape)
+        dataset = dataset.batch(batchsize)
         dataset = dataset.shuffle(buffer_size=200)
         dataset.prefetch(buffer_size=1000)
         self._dataset = dataset
@@ -86,14 +88,15 @@ class CifarDataSet:
 
         return img_name_batch, img_batch, size_batch, class_id_batch, label_name_batch
 
+
 if __name__ == '__main__':
     # test CifarDataset
     # load traning config.
     trainConf = script_conf.loadTrainConf()
 
-    dataset = CifarDataSet(path = trainConf['dataset_path'],
-                         batchsize = trainConf['batch_size'],
-                         class_num = trainConf['class_num'],
+    dataset = CifarDataSet(path=trainConf['dataset_path'],
+                           batchsize=trainConf['batch_size'],
+                           class_num=trainConf['class_num'],
                            mean_img=trainConf['mean_img'])
 
     # img_batch, size_batch, \
@@ -103,7 +106,8 @@ if __name__ == '__main__':
     with tf.Session() as ss:
         ss.run(dataset._itr.initializer)
         for _ in range(1):
-            img_name_batch, img_batch, sizes_batch, class_id_batch,label_name_batch = ss.run((img_name_batch, img_batch, sizes_batch, class_id_batch,label_name_batch))
+            img_name_batch, img_batch, sizes_batch, class_id_batch, label_name_batch = ss.run(
+                (img_name_batch, img_batch, sizes_batch, class_id_batch, label_name_batch))
 
             for i in range(trainConf['batch_size']):
                 shape = [sizes_batch[i, 1], sizes_batch[i, 0], sizes_batch[i, 2]]

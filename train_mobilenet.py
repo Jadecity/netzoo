@@ -10,6 +10,7 @@ import common.config as conf
 import json
 import tensorflow.contrib.slim.nets as nets
 
+
 def main(_):
     """
     Main script for training.
@@ -49,13 +50,12 @@ def main(_):
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
     tf.summary.scalar('train_acc', accuracy)
 
-
-
     summary = tf.summary.merge_all()
     init_op = tf.global_variables_initializer()
 
     model_saver = tf.train.Saver()
-    with  open('/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/classes.json') as label_name_file:
+    with  open(
+            '/home/autel/libs/ssd-tensorflow-ljanyst/pascal-voc/trainval/VOCdevkit/VOC2007/classes.json') as label_name_file:
         class_dict = json.load(label_name_file)
 
     step_cnt = 0
@@ -82,15 +82,17 @@ def main(_):
                     #     utils.visulizeClass(img, class_onehot, class_dict, hold=True)
                     #     plt.waitforbuttonpress()
 
-                    summary_val, loss_val, weight_loss_val,  train_acc, _ = sess.run([summary, loss, weight_loss, accuracy, train_op], feed_dict={input_imgs:imgs_input,
-                                                                          labels: labels_input})
+                    summary_val, loss_val, weight_loss_val, train_acc, _ = sess.run(
+                        [summary, loss, weight_loss, accuracy, train_op], feed_dict={input_imgs: imgs_input,
+                                                                                     labels: labels_input})
 
                     # summary_val, loss_val, train_acc = sess.run([summary, loss, accuracy],
                     #                                                feed_dict={input_imgs: imgs_input,
                     #                                                       labels: labels_input})
                     if step_cnt % gconf['log_step'] == 0:
                         tb_log_writer.add_summary(summary_val, step_cnt)
-                        print('Step %d, loss: %f, weight_loss: %f, train_acc: %f'%(step_cnt, loss_val, weight_loss_val, train_acc))
+                        print('Step %d, loss: %f, weight_loss: %f, train_acc: %f' % (
+                        step_cnt, loss_val, weight_loss_val, train_acc))
                 except tf.errors.OutOfRangeError:
                     # log statistics
                     # break
@@ -100,7 +102,7 @@ def main(_):
 
             if epoch_idx % 4 == 0:
                 optimizer = tf.train.AdamOptimizer(learning_rate=gconf['learning_rate'])
+
+
 if __name__ == '__main__':
     tf.app.run()
-
-
