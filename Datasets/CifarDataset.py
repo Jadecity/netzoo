@@ -39,6 +39,7 @@ class CifarDataSet:
         image = tf.decode_raw(context_parsed['image'], tf.uint8)
         size = context_parsed['size']
         image = tf.reshape(image, size)
+        image = tf.cast(image, dtype=tf.float32)
         image -= self._mean_img
 
         image_name = context_parsed['image_name']
@@ -67,8 +68,9 @@ class CifarDataSet:
 
         dataset = tf.data.TFRecordDataset(rcd_files)
         dataset = dataset.map(map_func=parser)
-        padding_shape = ([], [None, None, None], [None], [], [])
-        dataset = dataset.padded_batch(batchsize, padded_shapes=padding_shape)
+        # padding_shape = ([], [None, None, None], [None], [], [])
+        # dataset = dataset.padded_batch(batchsize, padded_shapes=padding_shape)
+        dataset = dataset.batch(batchsize)
         dataset = dataset.shuffle(buffer_size=200)
         dataset.prefetch(buffer_size=1000)
         self._dataset = dataset
