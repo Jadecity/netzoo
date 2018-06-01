@@ -27,7 +27,7 @@ def unpickle(file):
         dict = pickle.load(fo, encoding='bytes')
     return dict
 
-def cifar_to_class_json(cifar_home, dest_path, write_img=False):
+def cifar_to_class_json(cifar_home, dest_path, write_img=False, mode='train'):
     """
     Convert standard cifar data set to standard class json files.
     :param cifar_home, path to cifar data.
@@ -39,14 +39,18 @@ def cifar_to_class_json(cifar_home, dest_path, write_img=False):
     label_names = label_names[b'label_names']
 
     # make dest path for images, json files
-    img_dir = path.join(dest_path, 'imgs')
+    img_dir = path.join(dest_path, mode, 'imgs')
     if not os.path.exists(img_dir):
-        os.mkdir(img_dir)
+        os.makedirs(img_dir)
 
     json_file = open(path.join(dest_path, 'img_labels.json'), 'w')
+    if mode == 'train':
+        file_pattern = 'data_batch_*'
+    elif mode == 'eval':
+        file_pattern = 'test_batch'
 
     name_label = {}
-    for fname in glob.glob(path.join(cifar_home, 'data_batch_*')):
+    for fname in glob.glob(path.join(cifar_home, file_pattern)):
         data_batch = unpickle(fname)
         for label, raw_img, filename in zip(data_batch[b'labels'], data_batch[b'data'], data_batch[b'filenames']):
             filename = str(filename, encoding='utf8')
@@ -168,7 +172,7 @@ def encode2Tfrecord(src_path, data_home, dest_path, cnt_max, preprocessor=None):
      """
 
     if not path.exists(dest_path):
-        os.mkdir(dest_path)
+        os.makedirs(dest_path)
 
     cnt = 1
 
@@ -230,8 +234,8 @@ def encode2Tfrecord(src_path, data_home, dest_path, cnt_max, preprocessor=None):
 
 if __name__ == '__main__':
     cifar_home = '/home/autel/data/cifar/cifar-10-batches-py/'
-    tfrecord_path = '/home/autel/data/cifar/cifar-10-batches-py/tfrecords'
-    data_home = path.join(cifar_home, 'imgs')
+    tfrecord_path = '/home/autel/data/cifar/cifar-10-batches-py/tfrecords/eval'
+    data_home = path.join(cifar_home, 'eval/imgs')
 
-    # cifar_to_class_json(cifar_home, cifar_home, write_img=False)
+    # cifar_to_class_json(cifar_home, cifar_home, write_img=True, mode='eval')
     encode2Tfrecord(cifar_home, data_home=data_home, dest_path=tfrecord_path, cnt_max=1000)
